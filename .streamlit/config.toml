@@ -1,0 +1,25 @@
+# Tema fixo do app.
+#
+# Sem este arquivo o Streamlit escolhe a base pelo sistema de quem abre: para
+# quem está com o Windows/navegador no escuro, o Cloud servia a base "dark" e o
+# CSS de src/ui/styles.py — que é todo pensado para fundo claro (cartões #fff,
+# texto slate) — ficava com texto claro sobre cartão claro.
+#
+# Os valores abaixo são os mesmos do :root de src/ui/styles.py. Se a paleta
+# mudar lá, mude aqui junto: é este arquivo que pinta a primeira tela, antes de
+# o CSS ser injetado.
+#
+# Só chaves antigas de [theme] aqui (base/primaryColor/backgroundColor/
+# secondaryBackgroundColor/textColor/font): as novas (borderColor, baseRadius…)
+# quebram o startup em quem estiver no streamlit 1.40 do requirements.txt.
+[theme]
+base = "light"
+
+primaryColor = "#7b68ee"              # --roxo
+backgroundColor = "#f1f5f9"           # --s100, o fundo do stAppViewContainer
+secondaryBackgroundColor = "#ffffff"  # sidebar, cartões e widgets
+textColor = "#334155"                 # --s700
+font = "sans serif"                   # a Inter entra pelo @import do styles.py
+
+[browser]
+gatherUsageStats = false

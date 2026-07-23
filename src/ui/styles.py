@@ -40,7 +40,12 @@ CSS = """
   --sombra-hover: 0 4px 6px -1px rgba(15, 23, 42, .07), 0 2px 4px -2px rgba(15, 23, 42, .05);
 }
 
+/* O tema claro é fixado em .streamlit/config.toml; o `color-scheme` aqui é o
+   par disso para o que o navegador desenha sozinho — barra de rolagem nativa,
+   calendário do date_input, fundo de autopreenchimento. Sem ele, num sistema
+   no escuro esses pedaços vinham escuros dentro de uma tela clara. */
 html {
+  color-scheme: light;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
