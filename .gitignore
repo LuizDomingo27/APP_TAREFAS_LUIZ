@@ -1,7 +1,33 @@
+# ------------------------------------------------------------------ segredos
+# O .env fica só na máquina; o que vai para o repositório é o .env.example,
+# com os nomes das variáveis e nenhum valor.
 .env
+.env.local
+.env.*.local
+
+# Do .streamlit sobe SÓ o config.toml (o tema). O secrets.toml é o .env do
+# Streamlit Cloud e nunca deve ser versionado.
 .streamlit/secrets.toml
+
+# --------------------------------------------------------------------- python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ------------------------------------------------------------------ ambientes
 .venv/
 venv/
+env/
+
+# ----------------------------------------------------------- editor / sistema
+# Config pessoal de máquina: caminho de venv, permissões, atalhos. Não é do
+# projeto, e versionar isso só gera conflito entre quem trabalha nele.
+.claude/settings.local.json
+.vscode/
+.idea/
 .DS_Store
+Thumbs.db
+desktop.ini
