@@ -162,6 +162,17 @@ primeiro. É controle de concorrência otimista.
 > é ação de um clique; barrar com "alguém editou antes" seria pior que deixar
 > passar. `src/repo/tasks.py` → `mudar_status()`.
 
+**A data da entrega é carimbada pelo banco, não pela tela:** ao mover a tarefa
+para "Concluído" — pelo modal ou pelo card — o trigger `tasks_set_concluido_em`
+grava `concluido_em` com o momento da transição, e o apaga se a tarefa for
+reaberta. Nenhum código Python envia esse campo, então as duas rotas de escrita
+ficam corretas de graça.
+
+Não confunda com `atualizado_em`, que muda a **cada** edição e serve só para a
+trava de concorrência acima. Usar `atualizado_em` como data de entrega foi
+justamente o bug que fazia o painel acusar atraso em tarefa entregue no prazo —
+ver *Regras de Cálculo de Prazos e Datas* no `README.md` e `src/prazos.py`.
+
 ---
 
 ## 5. Exclusão de TAREFAS
@@ -505,6 +516,8 @@ stateDiagram-v2
 | `src/models.py` | `Perfil` e a leitura da linha do banco |
 | `src/repo/catalog.py` | `criar_espaco`, `criar_lista`, `excluir_espaco` e gestão de perfis/convites |
 | `src/repo/tasks.py` | `criar` (escrita de tarefa no banco) |
-| `sql/01_schema.sql` | Tabelas + trigger que gera o código da tarefa |
+| `src/prazos.py` | Cálculo de prazo, atraso e tempo de ciclo (módulo puro) |
+| `sql/01_schema.sql` | Tabelas + triggers de código, `atualizado_em` e `concluido_em` |
+| `sql/06_concluido_em.sql` | Migração da data de entrega em bancos já existentes |
 | `sql/02_rls.sql` | Políticas RLS (quem pode escrever) |
 | `app.py` | Orquestra qual modal desenhar por run |

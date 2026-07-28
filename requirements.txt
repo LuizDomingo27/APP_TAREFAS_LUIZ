@@ -2,3 +2,7 @@ streamlit>=1.40
 supabase>=2.10
 python-dotenv>=1.0
 plotly>=5.18.0
+# Base de fusos horários. O Windows não traz uma; sem ela o
+# `ZoneInfo("America/Sao_Paulo")` de `src/prazos.py` cai no offset fixo de
+# reserva e erra uma hora durante o horário de verão.
+tzdata>=2024.1

@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import timedelta
 import json
 import logging
 import streamlit as st
 import streamlit.components.v1 as components
 
 from src.models import Perfil, Status, Prioridade, CORES_PRIORIDADE
+from src.prazos import (
+    calcular_dias_em_andamento,
+    calcular_prazo,
+    esta_critica,
+    hoje as data_de_hoje,
+    para_data,
+)
 from src.repo import catalog, tasks
-from src.ui.componentes import avatar, esc, icone, limpar
+from src.ui.componentes import avatar, data_longa, esc, icone, limpar
 
 logger = logging.getLogger(__name__)
 
@@ -30,102 +37,21 @@ CORES_PRIO = {
 }
 
 
-def _parse_date(dt_val: str | date | datetime | None) -> date | None:
-    """Converte com segurança valores de data em `date`."""
-    if not dt_val:
-        return None
-    if isinstance(dt_val, date) and not isinstance(dt_val, datetime):
-        return dt_val
-    if isinstance(dt_val, datetime):
-        return dt_val.date()
-    if isinstance(dt_val, str):
-        try:
-            limpo = dt_val.split("T")[0]
-            return datetime.strptime(limpo, "%Y-%m-%d").date()
-        except Exception:
-            try:
-                return datetime.fromisoformat(dt_val).date()
-            except Exception:
-                return None
-    return None
+# Cor de cada selo da coluna "Situação do Prazo". Era uma escada de ternários
+# que só cobria três classes: "alerta" (entrega fora do prazo) caía no cinza
+# do `else` e ficava indistinguível de "Sem data limite". Dicionário para que
+# uma classe nova apareça errada de um jeito óbvio, não invisível.
+ESTILO_BADGE_PRAZO = {
+    "urgente": "background:#fee2e2; color:#dc2626;",    # pendente e vencida
+    "alerta": "background:#ffedd5; color:#c2410c;",     # entregue com atraso
+    "alta": "background:#fef3c7; color:#d97706;",       # vence em breve
+    "concluido": "background:#d1fae5; color:#059669;",  # entregue no prazo
+    "normal": "background:#f1f5f9; color:#475569;",     # sem urgência
+}
 
 
-def _calcular_dias_em_andamento(task: dict, hoje: date) -> int:
-    """Calcula quantos dias a tarefa/projeto está em andamento."""
-    dt_criacao = _parse_date(task.get("criado_em"))
-    if not dt_criacao:
-        return 0
-
-    if task.get("status") == Status.CONCLUIDO.value:
-        dt_fim = _parse_date(task.get("atualizado_em")) or hoje
-        dias = (dt_fim - dt_criacao).days
-    else:
-        dias = (hoje - dt_criacao).days
-
-    return max(0, dias)
-
-
-def _calcular_prazo(task: dict, hoje: date) -> dict:
-    """Retorna dicionário enriquecido com métricas de prazo."""
-    dt_limite = _parse_date(task.get("data_limite"))
-    status_str = task.get("status", Status.A_FAZER.value)
-
-    if not dt_limite:
-        return {
-            "dias_restantes": None,
-            "status_prazo": "Sem data limite",
-            "badge_class": "normal",
-            "atrasado": False,
-        }
-
-    if status_str == Status.CONCLUIDO.value:
-        dt_conclusao = _parse_date(task.get("atualizado_em")) or hoje
-        dias_conclusao = (dt_conclusao - dt_limite).days
-        if dias_conclusao <= 0:
-            return {
-                "dias_restantes": abs(dias_conclusao),
-                "status_prazo": "Concluído no prazo",
-                "badge_class": "concluido",
-                "atrasado": False,
-            }
-        else:
-            return {
-                "dias_restantes": -dias_conclusao,
-                "status_prazo": f"Concluído com {dias_conclusao}d de atraso",
-                "badge_class": "alerta",
-                "atrasado": True,
-            }
-
-    dias = (dt_limite - hoje).days
-
-    if dias < 0:
-        return {
-            "dias_restantes": dias,
-            "status_prazo": f"Atrasado há {abs(dias)} dia(s)",
-            "badge_class": "urgente",
-            "atrasado": True,
-        }
-    elif dias == 0:
-        return {
-            "dias_restantes": 0,
-            "status_prazo": "Vence hoje!",
-            "badge_class": "alta",
-            "atrasado": False,
-        }
-    elif dias <= 3:
-        return {
-            "dias_restantes": dias,
-            "status_prazo": f"Vence em {dias} dia(s)",
-            "badge_class": "alta",
-            "atrasado": False,
-        }
-    else:
-        return {
-            "dias_restantes": dias,
-            "status_prazo": f"Faltam {dias} dia(s)",
-            "badge_class": "normal",
-            "atrasado": False,
-        }
+def _estilo_badge(badge_class: str) -> str:
+    return ESTILO_BADGE_PRAZO.get(badge_class, ESTILO_BADGE_PRAZO["normal"])
 
 
 def _render_echart_html(js_code: str, height: int = 400) -> None:
@@ -182,7 +108,10 @@ def render(eu: Perfil) -> None:
         st.error(f"Erro ao carregar os indicadores do banco de dados: {exc}")
         return
 
-    hoje = date.today()
+    # Data no fuso da equipe, não no do servidor: o Streamlit Cloud roda em
+    # UTC, e `date.today()` lá já virou amanhã enquanto aqui ainda é hoje —
+    # isso sozinho criava um dia de atraso fantasma no fim da tarde.
+    hoje = data_de_hoje()
 
     # Mapeamento auxiliar: list_id -> space
     lista_para_espaco = {l["id"]: l["space_id"] for l in listas}
@@ -191,14 +120,15 @@ def render(eu: Perfil) -> None:
 
     # Enriquecer tarefas com métricas calculadas
     tarefas_enriquecidas = []
+    falhas_no_calculo = 0
     for t in todas_tarefas:
         try:
             space_id = lista_para_espaco.get(t.get("list_id"))
             espaco = espacos_dict.get(space_id)
             resp = perfis_dict.get(t.get("responsavel_id"))
 
-            dias_andamento = _calcular_dias_em_andamento(t, hoje)
-            info_prazo = _calcular_prazo(t, hoje)
+            dias_andamento = calcular_dias_em_andamento(t, hoje)
+            info_prazo = calcular_prazo(t, hoje)
 
             tarefas_enriquecidas.append(
                 {
@@ -211,8 +141,32 @@ def render(eu: Perfil) -> None:
                     **info_prazo,
                 }
             )
-        except Exception as exc:
-            logger.warning(f"Erro ao processar métricas da tarefa {t.get('id')}: {exc}")
+        except Exception:
+            # A tarefa entra mesmo assim, sem as métricas. Descartar em
+            # silêncio fazia ela sumir do painel e dos totais — um KPI a
+            # menos e ninguém sabendo por quê.
+            falhas_no_calculo += 1
+            logger.exception("Erro ao calcular métricas da tarefa %s.", t.get("id"))
+            tarefas_enriquecidas.append(
+                {
+                    **t,
+                    "space_id": None,
+                    "space_nome": "Sem Espaço",
+                    "space_cor": "#7b68ee",
+                    "responsavel_nome": "Não atribuído",
+                    "dias_andamento": 0,
+                    **calcular_prazo({}, hoje),
+                    "status_prazo": "Não foi possível calcular",
+                    "badge_class": "normal",
+                }
+            )
+
+    if falhas_no_calculo:
+        st.warning(
+            f"{falhas_no_calculo} tarefa(s) tiveram as métricas de prazo "
+            "ignoradas por dados inconsistentes. Elas continuam listadas, mas "
+            "sem situação de prazo."
+        )
 
     # ========================================================== BARRA DE FILTROS
     with st.container():
@@ -244,7 +198,9 @@ def render(eu: Perfil) -> None:
     total = len(tarefas_filtradas)
     concluidas = sum(1 for t in tarefas_filtradas if t["status"] == Status.CONCLUIDO.value)
     em_andamento = sum(1 for t in tarefas_filtradas if t["status"] == Status.EM_PROGRESSO.value)
-    atrasadas = sum(1 for t in tarefas_filtradas if t["atrasado"] and t["status"] != Status.CONCLUIDO.value)
+    # `atrasado` já significa "pendente e vencida" (ver src/prazos.py); entrega
+    # antiga fora do prazo é `entregue_com_atraso` e não entra neste KPI.
+    atrasadas = sum(1 for t in tarefas_filtradas if t["atrasado"])
     med_andamento = (
         round(sum(t["dias_andamento"] for t in tarefas_filtradas) / total, 1)
         if total > 0
@@ -303,7 +259,7 @@ def render(eu: Perfil) -> None:
             st.info("Nenhuma tarefa encontrada com os filtros selecionados.")
         else:
             cor_por = st.radio("Colorir barras por:", ["Status", "Projeto"], horizontal=True, key="gantt_color_by")
-            min_date = min((_parse_date(t.get("criado_em")) or hoje for t in tarefas_filtradas), default=hoje)
+            min_date = min((para_data(t.get("criado_em")) or hoje for t in tarefas_filtradas), default=hoje)
 
             y_cats = []
             offsets = []
@@ -318,8 +274,8 @@ def render(eu: Perfil) -> None:
                     lbl = lbl[:35] + "..."
                 y_cats.append(lbl)
 
-                dt_ini = _parse_date(t.get("criado_em")) or hoje
-                dt_fim = _parse_date(t.get("data_limite")) or (dt_ini + timedelta(days=1))
+                dt_ini = para_data(t.get("criado_em")) or hoje
+                dt_fim = para_data(t.get("data_limite")) or (dt_ini + timedelta(days=1))
                 if dt_fim <= dt_ini:
                     dt_fim = dt_ini + timedelta(days=1)
 
@@ -417,7 +373,7 @@ def render(eu: Perfil) -> None:
                 dados_user[user][st_nome] += 1
                 dados_user[user]["count"] += 1
                 dados_user[user]["dias_totais"] += t["dias_andamento"]
-                if t["atrasado"] and t["status"] != Status.CONCLUIDO.value:
+                if t["atrasado"]:
                     dados_user[user]["atrasadas"] += 1
 
             users_list = list(dados_user.keys())
@@ -521,12 +477,12 @@ def render(eu: Perfil) -> None:
 
                 rows_html = []
                 for item in sub_t:
-                    badge_style = (
-                        "background:#fee2e2; color:#dc2626;" if item["badge_class"] == "urgente"
-                        else "background:#fef3c7; color:#d97706;" if item["badge_class"] == "alta"
-                        else "background:#d1fae5; color:#059669;" if item["badge_class"] == "concluido"
-                        else "background:#f1f5f9; color:#475569;"
-                    )
+                    badge_style = _estilo_badge(item["badge_class"])
+                    # A data da entrega ao lado do prazo torna a conta
+                    # conferível na própria tela: dá para ver de onde saiu o
+                    # número de dias em vez de ter que acreditar nele.
+                    entregue_em = item.get("data_conclusao")
+                    entrega_txt = data_longa(entregue_em.isoformat()) if entregue_em else "—"
                     rows_html.append(f"""
                     <tr>
                         <td style="font-weight:600; color:#0f172a;">{esc(item.get('codigo') or '-')}</td>
@@ -534,7 +490,8 @@ def render(eu: Perfil) -> None:
                         <td><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:{esc(item['space_cor'])}; margin-right:4px;"></span>{esc(item['space_nome'])}</td>
                         <td><span style="font-size:11px; padding:2px 8px; border-radius:12px; background:#f1f5f9; font-weight:600;">{esc(item['status'])}</span></td>
                         <td><strong>{item['dias_andamento']} dias</strong></td>
-                        <td>{item.get('data_limite') or 'Sem data'}</td>
+                        <td>{data_longa(item.get('data_limite'))}</td>
+                        <td>{entrega_txt}</td>
                         <td><span style="font-size:11px; padding:2px 8px; border-radius:4px; font-weight:600; {badge_style}">{esc(item['status_prazo'])}</span></td>
                     </tr>
                     """)
@@ -550,6 +507,7 @@ def render(eu: Perfil) -> None:
                                 <th>Status</th>
                                 <th>Dias em Andamento</th>
                                 <th>Prazo Limite</th>
+                                <th>Entrega Real</th>
                                 <th>Situação do Prazo</th>
                             </tr>
                         </thead>
@@ -845,19 +803,14 @@ def render(eu: Perfil) -> None:
             st.markdown("---")
             st.markdown("### 🚨 Painel de Alerta de Vencimento e Atrasos")
 
-            criticas = [
-                t for t in tarefas_filtradas
-                if t["status"] != Status.CONCLUIDO.value and (
-                    t["atrasado"] or (t.get("dias_restantes") is not None and 0 <= t["dias_restantes"] <= 3)
-                )
-            ]
+            criticas = [t for t in tarefas_filtradas if esta_critica(t)]
 
             if not criticas:
                 st.success("🎉 Nenhuma tarefa atrasada ou prestes a vencer nos próximos 3 dias!")
             else:
                 crit_rows = []
                 for c in criticas:
-                    badge_c = "background:#fee2e2; color:#dc2626;" if c["atrasado"] else "background:#fef3c7; color:#d97706;"
+                    badge_c = _estilo_badge(c["badge_class"])
                     crit_rows.append(f"""
                     <tr>
                         <td style="font-weight:600;">{esc(c.get('codigo') or '-')}</td>

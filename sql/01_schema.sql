@@ -115,7 +115,8 @@ create table if not exists public.tasks (
     estimativa_horas  numeric(5, 2),
     ordem             integer not null default 0,
     criado_em         timestamptz not null default now(),
-    atualizado_em     timestamptz not null default now()
+    atualizado_em     timestamptz not null default now(),  -- muda a cada edição
+    concluido_em      timestamptz                          -- só na entrega; ver trigger abaixo
 );
 
 create index if not exists tasks_list_idx        on public.tasks (list_id, status, ordem);
@@ -167,6 +168,31 @@ drop trigger if exists tasks_touch on public.tasks;
 create trigger tasks_touch
     before update on public.tasks
     for each row execute function public.touch_atualizado_em();
+
+-- Carimba a data real da entrega.
+--
+-- Precisa ser uma coluna própria porque `atualizado_em` (acima) anda a cada
+-- edição: usá-lo como data de conclusão fazia o painel acusar atraso em
+-- tarefa entregue no prazo e editada depois. Aqui a data só é escrita na
+-- transição para 'Concluído', e é apagada se a tarefa for reaberta.
+-- Bancos criados antes desta versão: rode `sql/06_concluido_em.sql`.
+create or replace function public.tk_set_concluido_em()
+returns trigger language plpgsql as $$
+begin
+    if new.status = 'Concluído' then
+        if tg_op = 'INSERT' or old.status is distinct from 'Concluído' then
+            new.concluido_em := coalesce(new.concluido_em, now());
+        end if;
+    else
+        new.concluido_em := null;
+    end if;
+    return new;
+end $$;
+
+drop trigger if exists tasks_set_concluido_em on public.tasks;
+create trigger tasks_set_concluido_em
+    before insert or update on public.tasks
+    for each row execute function public.tk_set_concluido_em();
 
 
 -- ---------- Tags, subtarefas e comentários ----------
