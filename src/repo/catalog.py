@@ -10,9 +10,18 @@ from __future__ import annotations
 import streamlit as st
 
 from src.db import executar, get_client
-from src.models import Perfil
+from src.models import PAPEIS, Perfil
 
 TTL = 30  # segundos; leituras são baratas e a equipe é pequena
+
+
+class AcaoBloqueada(RuntimeError):
+    """Regra do app barrou a alteração antes de ela chegar ao banco.
+
+    Diferente do `False` que as funções devolvem: `False` é o Postgres
+    recusando (RLS), isto aqui é o app recusando. A mensagem já vem pronta
+    para a tela mostrar.
+    """
 
 
 def invalidar_cache() -> None:
@@ -56,16 +65,80 @@ def _atualizar_perfil(user_id: str, campos: dict) -> bool:
     return bool(resp.data)
 
 
+# ------------------------------------------------------------------ travas
+#
+# As duas regras que não podem ser quebradas por caminho nenhum:
+#
+#   1. ninguém tira o próprio acesso;
+#   2. o workspace nunca fica sem alguém que possa gerenciar.
+#
+# Ficam aqui, e não só na tela, porque a tela erra: a versão anterior
+# desabilitava o "Desativar" apenas quando você era o *último* gestor, então
+# bastava existir um segundo gestor para você conseguir se desativar — e se
+# esse segundo tivesse saído antes, o workspace ficava sem ninguém. Sem
+# usuário ativo não há como reentrar pelo app: só pelo SQL Editor, que é
+# exatamente o que a tela de Equipe existe para evitar.
+
+
+def _eu_id() -> str | None:
+    """Id de quem está logado.
+
+    Lido direto do `session_state` de propósito: importar `src.auth` aqui
+    puxaria a camada de UI para dentro do repositório.
+    """
+    perfil = st.session_state.get("perfil")
+    return getattr(perfil, "id", None)
+
+
+def _proibir_alvo_proprio(user_id: str, acao: str) -> None:
+    if _eu_id() is not None and user_id == _eu_id():
+        raise AcaoBloqueada(
+            f"Você não pode {acao} da sua própria conta. Peça a outro gestor "
+            "ou administrador."
+        )
+
+
+def _proibir_ultimo_gestor(user_id: str, acao: str) -> None:
+    """Barra a mudança que deixaria o workspace sem nenhum gestor/admin."""
+    alvo = next((p for p in equipe() if p.id == user_id), None)
+    if alvo is None or not alvo.pode_gerenciar:
+        return  # não é quem gerencia: a saída dele não muda a contagem
+    if any(p.pode_gerenciar for p in equipe() if p.id != user_id):
+        return
+    raise AcaoBloqueada(
+        f"{alvo.nome} é a única pessoa com acesso de gestão. Promova outra "
+        f"antes de {acao}."
+    )
+
+
+# ------------------------------------------------------------------ escrita
+
+
 def liberar(user_id: str) -> bool:
     return _atualizar_perfil(user_id, {"ativo": True, "recusado": False})
 
 
 def recusar(user_id: str) -> bool:
+    _proibir_alvo_proprio(user_id, "remover o acesso")
+    _proibir_ultimo_gestor(user_id, "desativá-la")
     return _atualizar_perfil(user_id, {"ativo": False, "recusado": True})
 
 
-def definir_gestor(user_id: str, gestor: bool) -> bool:
-    return _atualizar_perfil(user_id, {"gestor": gestor})
+def definir_papel(user_id: str, papel: str) -> bool:
+    """Grava membro / gestor / admin.
+
+    Gestor e admin dão o mesmo poder (ver `Perfil.pode_gerenciar`); são duas
+    colunas e não uma só para o RLS do Postgres poder decidir sem interpretar
+    texto, e para o rótulo continuar visível na tela.
+    """
+    if papel not in PAPEIS:
+        raise AcaoBloqueada(f"Papel desconhecido: {papel!r}.")
+    _proibir_alvo_proprio(user_id, "mudar o nível de acesso")
+    if papel == "membro":
+        _proibir_ultimo_gestor(user_id, "rebaixá-la")
+    return _atualizar_perfil(
+        user_id, {"gestor": papel == "gestor", "admin": papel == "admin"}
+    )
 
 
 # -------------------------------------------------------------- allowlist
@@ -79,7 +152,13 @@ def listar_convites() -> list[dict]:
     return resp.data or []
 
 
-def convidar(email: str, nome: str | None, gestor: bool) -> bool:
+def convidar(email: str, nome: str | None, papel: str = "membro") -> bool:
+    """Pré-autoriza um e-mail já com o papel que ele terá ao se cadastrar.
+
+    Quem lê estas colunas é o trigger `tk_handle_new_user`, no cadastro.
+    """
+    if papel not in PAPEIS:
+        raise AcaoBloqueada(f"Papel desconhecido: {papel!r}.")
     resp = executar(
         get_client()
         .table("allowed_emails")
@@ -87,7 +166,8 @@ def convidar(email: str, nome: str | None, gestor: bool) -> bool:
             {
                 "email": email.strip().lower(),
                 "nome": (nome or "").strip() or None,
-                "gestor": gestor,
+                "gestor": papel == "gestor",
+                "admin": papel == "admin",
             },
             on_conflict="email",
         )

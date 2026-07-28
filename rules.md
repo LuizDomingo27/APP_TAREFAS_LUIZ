@@ -311,9 +311,10 @@ quebrar.
 
 ## 7. Times (tela de Equipe)
 
-**Quem pode:** só gestor. A opção "Equipe" na navegação só aparece para gestor,
-e a própria tela recusa quem não é (`render` verifica `eu.gestor`). Todas as
-escritas passam pelo RLS de `profiles`/`allowed_emails` como segunda tranca.
+**Quem pode:** gestor e admin — os dois níveis com poder de gestão. A opção
+"Equipe" na navegação só aparece para eles, e a própria tela recusa quem não é
+(`render` verifica `eu.pode_gerenciar`). Todas as escritas passam pelo RLS de
+`profiles`/`allowed_emails` como segunda tranca.
 - `src/ui/team.py` → `render()`
 
 Esta tela existe para **liberar acessos sem abrir o SQL Editor** do Supabase. É
@@ -332,22 +333,36 @@ Quem se cadastrou e ainda não foi aprovado. Um perfil novo nasce com
 
 Todos os membros liberados. Cada linha traz:
 
-- **Toggle "Gestor"** → `catalog.definir_gestor(id, bool)` promove/rebaixa.
+- **Seletor de acesso** → `catalog.definir_papel(id, papel)`, com três valores:
+  **Membro**, **Gestor** e **Admin**. Gestor e Admin têm **exatamente os mesmos
+  poderes** — a diferença é só de nomenclatura, para distinguir quem administra
+  o sistema de quem coordena o trabalho. Quem decide o que a pessoa pode fazer é
+  sempre `Perfil.pode_gerenciar`, nunca o rótulo.
 - **Desativar** → `catalog.recusar(id)` tira o acesso (vai para "desativados").
 - `src/ui/team.py` → `_secao_equipe()`
 
-**Trava do último gestor:** você **não** consegue se rebaixar nem se desativar
-se for o **único** gestor. Sem isso, o workspace ficaria sem ninguém capaz de
-liberar acessos — e só o SQL Editor sairia dessa, que é justo o que a tela quer
-evitar. Promova outra pessoa a gestor antes de sair.
+**Trava 1 — ninguém mexe na própria linha.** Você não consegue se rebaixar nem
+se desativar, tendo ou não outro gestor no time. A mudança do seu acesso sai
+sempre pela mão de outra pessoa.
+
+**Trava 2 — nunca sem gestão.** A última pessoa com acesso de gestão não pode
+ser rebaixada nem desativada por ninguém. Sem isso o workspace fica sem quem
+libere acessos, e só o SQL Editor sai dessa — justo o que a tela quer evitar.
+
+As duas travas existem em **três camadas**, porque a de cima já falhou uma vez:
+o botão desabilitado em `_secao_equipe()`, o `AcaoBloqueada` em
+`src/repo/catalog.py` e, no banco, a policy `profiles_gestor_manage` mais o
+trigger `tk_guardar_acesso` (`sql/07_admin.sql`). A do banco é a que vale para
+qualquer caminho, inclusive uma chamada direta na API REST do Supabase.
 
 ### 7.3 Pré-autorizar e-mail (convites / allowlist)
 
 Opcional. Um e-mail nesta lista (`allowed_emails`) **já entra liberado** ao se
 cadastrar, sem passar pela fila de aprovação.
 
-- **Adicionar** → `catalog.convidar(email, nome, gestor)`. O flag "Gestor" já
-  cria a pessoa como gestor quando ela se cadastrar.
+- **Adicionar** → `catalog.convidar(email, nome, papel)`. O papel escolhido já
+  vale no momento em que a pessoa se cadastra — dá para deixar um admin pronto
+  antes de ele existir.
 - **Remover** → `catalog.remover_convite(email)`.
 - `src/ui/team.py` → `_secao_convites()`
 
@@ -360,7 +375,8 @@ Expander no fim com quem foi recusado ou desativado.
 
 **Padrão comum a tudo aqui:** as funções de escrita devolvem `bool`; `False`
 significa que o RLS recusou (seu perfil deixou de ser gestor), e a tela mostra
-o aviso pedindo para recarregar. `src/ui/team.py` → `_falhou()`.
+o aviso pedindo para recarregar. Já `AcaoBloqueada` é regra nossa, com mensagem
+pronta para ler. Os três desfechos passam por `src/ui/team.py` → `_aplicar()`.
 
 ---
 
@@ -442,7 +458,14 @@ sessão, agenda a remoção do cookie e dá rerun.
 |---|---|
 | `ativo` | `True` = pode usar o app. `False` = pendente ou desativado. |
 | `gestor` | `True` = vê a tela de Equipe e cria/edita espaços e listas. |
+| `admin` | Igual a `gestor`, mesmos poderes; muda só o rótulo na tela. |
 | `recusado` | `True` = cadastro recusado ou conta desativada. |
+
+Nunca teste `gestor` direto: quem responde "esta pessoa pode gerenciar?" é
+`Perfil.pode_gerenciar` (gestor **ou** admin), e no banco a função
+`public.is_gestor()`, que todas as policies chamam. Foi por olhar só `gestor`
+que a tela de Equipe barrava um admin que a sidebar tinha acabado de convidar
+a entrar.
 
 O modelo e a leitura da linha estão em `src/models.py` (`Perfil.de_linha`).
 
@@ -458,9 +481,9 @@ stateDiagram-v2
     Cadastro --> Ativo: e-mail na allowlist
     Pendente --> Ativo: gestor Libera
     Pendente --> Recusado: gestor Recusa
-    Ativo --> Recusado: gestor Desativa
+    Ativo --> Recusado: gestor Desativa (nunca a si mesmo)
     Recusado --> Ativo: gestor Reativa
-    Ativo --> Ativo: toggle Gestor (promove/rebaixa)
+    Ativo --> Ativo: muda o papel (Membro/Gestor/Admin)
 ```
 
 **Os estados e os flags por trás deles:**
@@ -519,5 +542,7 @@ stateDiagram-v2
 | `src/prazos.py` | Cálculo de prazo, atraso e tempo de ciclo (módulo puro) |
 | `sql/01_schema.sql` | Tabelas + triggers de código, `atualizado_em` e `concluido_em` |
 | `sql/06_concluido_em.sql` | Migração da data de entrega em bancos já existentes |
+| `sql/07_admin.sql` | Papel de Admin + travas de acesso no banco |
 | `sql/02_rls.sql` | Políticas RLS (quem pode escrever) |
+| `sql/comandos_administrador.sql` | Consultas e reparos de acesso — **não é migração**, rode bloco a bloco |
 | `app.py` | Orquestra qual modal desenhar por run |

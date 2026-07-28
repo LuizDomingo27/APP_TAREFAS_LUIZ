@@ -2,8 +2,8 @@
 
 Segue o mesmo padrão do `task_detail`: o modal não guarda estado próprio; quem
 manda é uma chave em `session_state`, e `render_modais` abre o que estiver
-pedido. Só gestor chega aqui — os botões que disparam ficam atrás de
-`eu.gestor`, e o RLS de `02_rls.sql` é a segunda tranca.
+pedido. Só quem gerencia chega aqui — os botões que disparam ficam atrás de
+`eu.pode_gerenciar`, e o RLS de `02_rls.sql` é a segunda tranca.
 """
 
 from __future__ import annotations
@@ -226,7 +226,7 @@ def render_modais(eu: Perfil) -> bool:
     tentar abrir o modal de tarefa por cima. Como criar é privilégio de gestor,
     uma chave em pé num não-gestor (rerun teimoso) é apagada sem abrir nada.
     """
-    if not eu.gestor:
+    if not eu.pode_gerenciar:
         _fechar()
         return False
 

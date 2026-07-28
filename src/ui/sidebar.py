@@ -5,7 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.auth import logout
-from src.models import Perfil
+from src.models import ROTULO_PAPEL, Perfil
 from src.repo import catalog, tasks
 from src.ui import espacos as espacos_ui
 from src.ui import task_detail
@@ -214,7 +214,7 @@ def _rodape(eu: Perfil) -> None:
               {avatar(eu.nome)}
               <div class="perfil-texto">
                 <div class="perfil-nome">{esc(eu.nome)}</div>
-                <div class="perfil-cargo">{esc(eu.cargo or ("Gestor" if eu.pode_gerenciar else "Membro"))}</div>
+                <div class="perfil-cargo">{esc(eu.cargo or ROTULO_PAPEL[eu.papel])}</div>
               </div>
             </div>
             """),
