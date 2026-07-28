@@ -189,7 +189,7 @@ def _arvore(eu: Perfil) -> None:
                 if tipo == "lista" and ident == l["id"]:
                     chave_ativa = chave
 
-        if eu.gestor:
+        if eu.pode_gerenciar:
             espaco_sel = (
                 next((e for e in espacos if e["id"] == ident), None)
                 if tipo == "espaco"
@@ -214,7 +214,7 @@ def _rodape(eu: Perfil) -> None:
               {avatar(eu.nome)}
               <div class="perfil-texto">
                 <div class="perfil-nome">{esc(eu.nome)}</div>
-                <div class="perfil-cargo">{esc(eu.cargo or ("Gestor" if eu.gestor else "Membro"))}</div>
+                <div class="perfil-cargo">{esc(eu.cargo or ("Gestor" if eu.pode_gerenciar else "Membro"))}</div>
               </div>
             </div>
             """),
@@ -230,24 +230,23 @@ def render(eu: Perfil) -> str:
     with st.sidebar:
         _cabecalho()
 
-        if st.button("＋  Criar Tarefa", type="primary", use_container_width=True,
-                     key="btn_criar"):
-            task_detail.abrir_criacao()
-            st.rerun()
+        if eu.pode_gerenciar:
+            if st.button("＋  Criar Tarefa", type="primary", use_container_width=True,
+                         key="btn_criar"):
+                task_detail.abrir_criacao()
+                st.rerun()
 
         # Quadro/Lista viraram abas na área de conteúdo, como no protótipo.
         # Aqui fica só a navegação entre telas. Para quem não é gestor sobra
         # uma opção só, e um rádio de item único é ruído — vira um link fixo.
-        if eu.gestor:
-            view = st.radio(
-                "Navegação", ["Início", "Equipe"],
-                label_visibility="collapsed", key="nav",
-            )
-        else:
-            st.markdown(
-                '<div class="nav-fixo">Início</div>', unsafe_allow_html=True
-            )
-            view = "Início"
+        opcoes_nav = ["Início", "Dashboard"]
+        if eu.pode_gerenciar:
+            opcoes_nav.append("Equipe")
+
+        view = st.radio(
+            "Navegação", opcoes_nav,
+            label_visibility="collapsed", key="nav",
+        )
 
         _arvore(eu)
         _rodape(eu)

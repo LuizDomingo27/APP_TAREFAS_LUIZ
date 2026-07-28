@@ -1,8 +1,11 @@
-"""Visão em Lista — a tabela do protótipo, montada em HTML.
+"""Visão em Lista — tabela profissional com layout moderno.
 
 `st.dataframe` não aceita HTML nas células, então os badges de prioridade e
 status ficariam como texto cru. Uma tabela própria é o que mantém a lista
 idêntica ao Quadro em linguagem visual.
+
+Inclui barra de resumo por status, indicador visual de atraso com pulsação,
+rodapé com barra de progresso e contagem de conclusão.
 """
 
 from __future__ import annotations
@@ -11,6 +14,8 @@ import streamlit as st
 
 from src.ui import task_detail
 from src.ui.componentes import (
+    CORES_STATUS,
+    STATUS_ORDEM,
     atrasada,
     avatar,
     badge_prioridade,
@@ -21,39 +26,91 @@ from src.ui.componentes import (
     pill_status,
 )
 
-CABECALHO = ["", "Nome da Tarefa", "Status", "Prioridade", "Responsável", "Data Limite", "Tags"]
+CABECALHO = [
+    ("", "check-col"),
+    ("Tarefa", "nome-col"),
+    ("Status", "status-col"),
+    ("Prioridade", "prio-col"),
+    ("Responsável", "resp-col"),
+    ("Prazo", "data-col"),
+    ("Tags", "tags-col"),
+]
+
+
+def _resumo_status(tarefas: list[dict]) -> str:
+    """Barra de mini-contadores por status acima da tabela."""
+    contagens = {s: 0 for s in STATUS_ORDEM}
+    for t in tarefas:
+        contagens[t["status"]] = contagens.get(t["status"], 0) + 1
+
+    itens = []
+    for status in STATUS_ORDEM:
+        ponto, _, _ = CORES_STATUS.get(status, ("#94a3b8", "#e2e8f0", "#334155"))
+        itens.append(
+            f'<span class="tabela-resumo-item">'
+            f'<span class="ponto-mini" style="background:{ponto}"></span>'
+            f'{esc(status)} <strong>{contagens[status]}</strong></span>'
+        )
+    return f'<div class="tabela-resumo">{"".join(itens)}</div>'
+
+
+def _rodape_tabela(tarefas: list[dict]) -> str:
+    """Rodapé com contagem de conclusão e barra de progresso."""
+    total = len(tarefas)
+    concluidas = sum(1 for t in tarefas if t["status"] == "Concluído")
+    pct = int(concluidas / total * 100) if total else 0
+
+    return limpar(f"""
+    <div class="tabela-rodape">
+      <span>Exibindo <strong>{total}</strong> tarefa(s)</span>
+      <span class="concluidas">
+        Concluídas: <span class="badge-destaque">{concluidas}/{total}</span>
+        <span class="barra-progresso">
+          <span class="barra-progresso-fill" style="width:{pct}%"></span>
+        </span>
+        <span class="badge-destaque">{pct}%</span>
+      </span>
+    </div>
+    """)
 
 
 def _linha(tarefa: dict, nome_responsavel: str | None) -> str:
     concluida = tarefa["status"] == "Concluído"
     marca = (
-        f'<span class="check feito">{icone("check-square", 14)}</span>'
+        f'<span class="check feito">{icone("check-square", 16)}</span>'
         if concluida
         else '<span class="check"></span>'
     )
 
     venceu = atrasada(tarefa.get("data_limite"), tarefa["status"])
-    estilo_data = ' style="color:#dc2626;font-weight:600"' if venceu else ""
+    data_txt = data_longa(tarefa.get("data_limite"))
+    if venceu:
+        celula_data = f'<span class="data-atrasada">{data_txt}</span>'
+    else:
+        celula_data = data_txt
 
-    tags = "".join(f'<span class="tag">{esc(t)}</span> ' for t in tarefa["tags"])
+    tags = "".join(f'<span class="tag">{esc(t)}</span>' for t in tarefa["tags"])
+
+    resp_cls = "responsavel-cell" if nome_responsavel else "responsavel-cell sem"
+    resp_txt = esc(nome_responsavel or "Sem responsável")
 
     return limpar(f"""
     <tr>
       <td>{marca}</td>
       <td class="nome">
         <span class="card-codigo">{esc(tarefa.get("codigo") or "")}</span>
-        &nbsp;{esc(tarefa["titulo"])}
+        {esc(tarefa["titulo"])}
       </td>
       <td>{pill_status(tarefa["status"])}</td>
       <td>{badge_prioridade(tarefa["prioridade"])}</td>
       <td>
-        <span style="display:inline-flex;align-items:center;gap:.4rem">
+        <span class="{resp_cls}">
           {avatar(nome_responsavel, mini=True)}
-          {esc(nome_responsavel or "Sem responsável")}
+          {resp_txt}
         </span>
       </td>
-      <td class="data"{estilo_data}>{data_longa(tarefa.get("data_limite"))}</td>
-      <td>{tags or "—"}</td>
+      <td class="data">{celula_data}</td>
+      <td><span class="tags-cell">{tags or "—"}</span></td>
     </tr>
     """)
 
@@ -92,7 +149,7 @@ def render(tarefas: list[dict], nomes: dict[str, str]) -> None:
         )
         return
 
-    ths = "".join(f"<th>{esc(c)}</th>" for c in CABECALHO)
+    ths = "".join(f"<th>{esc(titulo)}</th>" for titulo, _ in CABECALHO)
     linhas = "".join(
         _linha(t, nomes.get(t.get("responsavel_id") or "")) for t in tarefas
     )
@@ -104,13 +161,16 @@ def render(tarefas: list[dict], nomes: dict[str, str]) -> None:
             <span>Lista de Tarefas</span>
             <span class="sub">{len(tarefas)} tarefa(s)</span>
           </div>
+          {_resumo_status(tarefas)}
           <div style="overflow-x:auto">
             <table class="tarefas">
               <thead><tr>{ths}</tr></thead>
               <tbody>{linhas}</tbody>
             </table>
           </div>
+          {_rodape_tabela(tarefas)}
         </div>
         """),
         unsafe_allow_html=True,
     )
+

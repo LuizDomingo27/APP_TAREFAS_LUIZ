@@ -70,7 +70,7 @@ def _para_date(iso: str | None) -> date | None:
         return None
 
 
-def _campos_comuns(tarefa: dict | None, chave: str) -> dict:
+def _campos_comuns(tarefa: dict | None, chave: str, pode_gerenciar: bool = True) -> dict:
     """Os widgets compartilhados pelo criar e pelo editar.
 
     Devolve o dicionário pronto para o banco — inclusive `tags`, que sai
@@ -101,17 +101,20 @@ def _campos_comuns(tarefa: dict | None, chave: str) -> dict:
             tarefa.get("prioridade") or Prioridade.NORMAL.value
         ),
         key=f"{chave}_prioridade",
+        disabled=not pode_gerenciar,
     )
 
     col_resp, col_data = st.columns(2)
     responsavel = col_resp.selectbox(
-        "Responsável", rotulos, index=indice, key=f"{chave}_resp"
+        "Responsável", rotulos, index=indice, key=f"{chave}_resp",
+        disabled=not pode_gerenciar,
     )
     limite = col_data.date_input(
         "Data limite",
         value=_para_date(tarefa.get("data_limite")),
         format="DD/MM/YYYY",
         key=f"{chave}_data",
+        disabled=not pode_gerenciar,
     )
 
     etiquetas = st.multiselect(
@@ -121,6 +124,7 @@ def _campos_comuns(tarefa: dict | None, chave: str) -> dict:
         accept_new_options=True,
         placeholder="Frontend, Bug, Design…",
         key=f"{chave}_tags",
+        disabled=not pode_gerenciar,
     )
 
     descricao = st.text_area(
@@ -129,6 +133,7 @@ def _campos_comuns(tarefa: dict | None, chave: str) -> dict:
         placeholder="Insira detalhes…",
         height=80,
         key=f"{chave}_descricao",
+        disabled=not pode_gerenciar,
     )
 
     return {
@@ -145,7 +150,14 @@ def _campos_comuns(tarefa: dict | None, chave: str) -> dict:
 
 
 @st.dialog("Nova tarefa", width="small", on_dismiss=fechar)
-def dialog_criar() -> None:
+def dialog_criar(eu: Perfil | None = None) -> None:
+    if eu and not eu.pode_gerenciar:
+        st.error("Apenas gestores ou administradores podem criar tarefas.")
+        if st.button("Fechar"):
+            fechar()
+            st.rerun()
+        return
+
     listas = _mapa_listas()
     if not listas:
         st.warning("Nenhuma lista cadastrada — crie um espaço e uma lista antes.")
@@ -156,7 +168,7 @@ def dialog_criar() -> None:
             "Título da tarefa", placeholder="Ex: Criar documentação da API"
         )
         onde = st.selectbox("Lista", list(listas), key="criar_lista")
-        campos = _campos_comuns(None, "criar")
+        campos = _campos_comuns(None, "criar", pode_gerenciar=True)
 
         # Botões encostados à direita, como no protótipo: a primeira coluna é
         # só o espaço vazio que os empurra para lá.
@@ -189,7 +201,7 @@ def dialog_criar() -> None:
 # ----------------------------------------------------------- subtarefas
 
 
-def _secao_subtarefas(task_id: str) -> None:
+def _secao_subtarefas(task_id: str, pode_gerenciar: bool = True) -> None:
     itens = tasks.listar_subtarefas(task_id)
     feitas = sum(1 for s in itens if s["concluida"])
 
@@ -200,30 +212,36 @@ def _secao_subtarefas(task_id: str) -> None:
     )
 
     for s in itens:
-        col_check, col_lixo = st.columns([12, 1], vertical_alignment="center")
-        marcada = col_check.checkbox(
-            s["titulo"], value=s["concluida"], key=f"sub_{s['id']}"
-        )
-        if marcada != s["concluida"]:
-            tasks.alternar_subtarefa(s["id"], marcada)
-            st.rerun()
-
-        if col_lixo.button(
-            ":material/close:", key=f"delsub_{s['id']}", help="Remover subtarefa"
-        ):
-            tasks.excluir_subtarefa(s["id"])
-            st.rerun()
-
-    with st.form(f"add_sub_{task_id}", clear_on_submit=True, border=False):
-        col_txt, col_btn = st.columns([3, 1])
-        nova = col_txt.text_input(
-            "Nova subtarefa", placeholder="Adicionar subtarefa…",
-            label_visibility="collapsed",
-        )
-        if col_btn.form_submit_button("Adicionar", use_container_width=True):
-            if nova.strip():
-                tasks.add_subtarefa(task_id, nova)
+        if pode_gerenciar:
+            col_check, col_lixo = st.columns([12, 1], vertical_alignment="center")
+            marcada = col_check.checkbox(
+                s["titulo"], value=s["concluida"], key=f"sub_{s['id']}"
+            )
+            if marcada != s["concluida"]:
+                tasks.alternar_subtarefa(s["id"], marcada)
                 st.rerun()
+
+            if col_lixo.button(
+                ":material/close:", key=f"delsub_{s['id']}", help="Remover subtarefa"
+            ):
+                tasks.excluir_subtarefa(s["id"])
+                st.rerun()
+        else:
+            st.checkbox(
+                s["titulo"], value=s["concluida"], key=f"sub_{s['id']}", disabled=True
+            )
+
+    if pode_gerenciar:
+        with st.form(f"add_sub_{task_id}", clear_on_submit=True, border=False):
+            col_txt, col_btn = st.columns([3, 1])
+            nova = col_txt.text_input(
+                "Nova subtarefa", placeholder="Adicionar subtarefa…",
+                label_visibility="collapsed",
+            )
+            if col_btn.form_submit_button("Adicionar", use_container_width=True):
+                if nova.strip():
+                    tasks.add_subtarefa(task_id, nova)
+                    st.rerun()
 
 
 # ---------------------------------------------------------- comentários
@@ -259,7 +277,7 @@ def _secao_comentarios(task_id: str, eu: Perfil) -> None:
             """),
             unsafe_allow_html=True,
         )
-        if c["autor_id"] == eu.id or eu.gestor:
+        if c["autor_id"] == eu.id or eu.pode_gerenciar:
             if col_lixo.button(
                 ":material/close:", key=f"delcom_{c['id']}", help="Apagar comentário"
             ):
@@ -282,6 +300,8 @@ def _secao_comentarios(task_id: str, eu: Perfil) -> None:
 
 @st.dialog("Detalhe da tarefa", width="small", on_dismiss=fechar)
 def dialog_detalhe(tarefa: dict, eu: Perfil) -> None:
+    pode_gerenciar = eu.pode_gerenciar
+
     st.markdown(
         f'<div class="detalhe-codigo">{esc(tarefa.get("codigo") or "—")}</div>',
         unsafe_allow_html=True,
@@ -289,9 +309,10 @@ def dialog_detalhe(tarefa: dict, eu: Perfil) -> None:
 
     with st.form(f"form_editar_{tarefa['id']}", border=False):
         titulo = st.text_input(
-            "Título da tarefa", value=tarefa["titulo"], key="edit_titulo"
+            "Título da tarefa", value=tarefa["titulo"], key="edit_titulo",
+            disabled=not pode_gerenciar,
         )
-        campos = _campos_comuns(tarefa, "edit")
+        campos = _campos_comuns(tarefa, "edit", pode_gerenciar=pode_gerenciar)
 
         _, col_salvar = st.columns([1, 1])
         salvar = col_salvar.form_submit_button(
@@ -299,58 +320,65 @@ def dialog_detalhe(tarefa: dict, eu: Perfil) -> None:
         )
 
     if salvar:
-        if not titulo.strip():
-            st.warning("O título não pode ficar vazio.")
+        if not pode_gerenciar:
+            # Membro comum só pode alterar o status
+            if campos["status"] != tarefa.get("status"):
+                tasks.mudar_status(tarefa["id"], campos["status"])
+                st.toast("Status alterado.", icon="✅")
+            fechar()
+            st.rerun()
         else:
-            etiquetas = campos.pop("tags")
-            try:
-                tasks.atualizar(
-                    tarefa["id"],
-                    {"titulo": titulo.strip(), **campos},
-                    visto_em=tarefa.get("atualizado_em"),
-                )
-            except tasks.ConflitoDeEdicao:
-                st.error(
-                    "Outra pessoa salvou esta tarefa enquanto você editava. "
-                    "Feche e abra de novo para ver a versão atual."
-                )
+            if not titulo.strip():
+                st.warning("O título não pode ficar vazio.")
             else:
-                if set(etiquetas) != set(tarefa.get("tags") or []):
-                    tasks.definir_tags(tarefa["id"], etiquetas)
-                st.toast("Tarefa salva.", icon="✅")
-                fechar()
-                st.rerun()
+                etiquetas = campos.pop("tags")
+                try:
+                    tasks.atualizar(
+                        tarefa["id"],
+                        {"titulo": titulo.strip(), **campos},
+                        visto_em=tarefa.get("atualizado_em"),
+                    )
+                except tasks.ConflitoDeEdicao:
+                    st.error(
+                        "Outra pessoa salvou esta tarefa enquanto você editava. "
+                        "Feche e abra de novo para ver a versão atual."
+                    )
+                else:
+                    if set(etiquetas) != set(tarefa.get("tags") or []):
+                        tasks.definir_tags(tarefa["id"], etiquetas)
+                    st.toast("Tarefa salva.", icon="✅")
+                    fechar()
+                    st.rerun()
 
     st.divider()
-    _secao_subtarefas(tarefa["id"])
+    _secao_subtarefas(tarefa["id"], pode_gerenciar=pode_gerenciar)
     st.divider()
     _secao_comentarios(tarefa["id"], eu)
     st.divider()
 
-    # Exclusão em dois passos: o botão só arma a confirmação. Um clique errado
-    # dentro de um modal apertado não pode apagar tarefa de ninguém.
-    if st.session_state.get("confirmar_exclusao") == tarefa["id"]:
-        st.warning(f"Excluir **{tarefa['titulo']}**? Isso não tem volta.")
-        col_sim, col_nao = st.columns(2)
-        if col_sim.button(
-            "Sim, excluir", type="primary", key="btn_confirmar_exclusao",
-            use_container_width=True,
-        ):
-            if tasks.excluir(tarefa["id"]):
-                fechar()
-                st.toast("Tarefa excluída.", icon="🗑️")
+    # Exclusão só disponível para quem possui permissão de gestão
+    if pode_gerenciar:
+        if st.session_state.get("confirmar_exclusao") == tarefa["id"]:
+            st.warning(f"Excluir **{tarefa['titulo']}**? Isso não tem volta.")
+            col_sim, col_nao = st.columns(2)
+            if col_sim.button(
+                "Sim, excluir", type="primary", key="btn_confirmar_exclusao",
+                use_container_width=True,
+            ):
+                if tasks.excluir(tarefa["id"]):
+                    fechar()
+                    st.toast("Tarefa excluída.", icon="🗑️")
+                    st.rerun()
+                else:
+                    st.error(
+                        "O banco recusou a exclusão."
+                    )
+            if col_nao.button("Cancelar", use_container_width=True):
+                st.session_state.pop("confirmar_exclusao", None)
                 st.rerun()
-            else:
-                st.error(
-                    "O banco recusou. Só quem criou a tarefa — ou um gestor — "
-                    "pode excluí-la."
-                )
-        if col_nao.button("Cancelar", use_container_width=True):
-            st.session_state.pop("confirmar_exclusao", None)
+        elif st.button("Excluir tarefa", key="btn_excluir", use_container_width=True):
+            st.session_state["confirmar_exclusao"] = tarefa["id"]
             st.rerun()
-    elif st.button("Excluir tarefa", key="btn_excluir", use_container_width=True):
-        st.session_state["confirmar_exclusao"] = tarefa["id"]
-        st.rerun()
 
 
 # ------------------------------------------------------------- despachante
@@ -359,7 +387,7 @@ def dialog_detalhe(tarefa: dict, eu: Perfil) -> None:
 def render_modais(eu: Perfil) -> None:
     """Chamada uma vez por run, depois das telas: abre o modal que estiver pedido."""
     if st.session_state.get("criando_tarefa"):
-        dialog_criar()
+        dialog_criar(eu)
         return
 
     task_id = st.session_state.get("tarefa_aberta")

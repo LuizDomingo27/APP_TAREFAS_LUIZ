@@ -18,6 +18,7 @@ from src.models import Perfil  # noqa: E402
 from src.repo import catalog, tasks  # noqa: E402
 from src.ui import (  # noqa: E402
     board,
+    dashboard,
     espacos,
     list_view,
     sidebar,
@@ -86,6 +87,8 @@ def main() -> None:
 
     if view == "Equipe":
         team.render(eu)
+    elif "Dashboard" in view:
+        dashboard.render(eu)
     else:
         _tela_tarefas()
 

@@ -128,8 +128,18 @@ def avatar(nome: str | None, mini: bool = False) -> str:
 
 
 def pill_status(status: str) -> str:
+    # Mapa de status -> data-attribute slug para CSS
+    _slug = {
+        "A Fazer": "afazer",
+        "Em Progresso": "emprogresso",
+        "Em Revisão": "emrevisao",
+        "Concluído": "concluido",
+    }
+    slug = _slug.get(status, "afazer")
     _, fundo, texto = CORES_STATUS.get(status, ("#94a3b8", "#e2e8f0", "#334155"))
     return (
-        f'<span class="pill-status" style="background:{fundo};color:{texto}">'
+        f'<span class="pill-status" data-status="{slug}" '
+        f'style="background:{fundo};color:{texto}">'
         f"{esc(status)}</span>"
     )
+

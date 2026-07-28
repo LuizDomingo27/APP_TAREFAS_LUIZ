@@ -62,3 +62,13 @@ class Perfil:
         if len(partes) == 1:
             return partes[0][:2].upper()
         return (partes[0][0] + partes[-1][0]).upper()
+
+    @property
+    def pode_gerenciar(self) -> bool:
+        """Retorna True se o usuário for gestor ou possuir cargo/permissão de admin."""
+        if self.gestor:
+            return True
+        if self.cargo and self.cargo.lower().strip() in ("admin", "administrador"):
+            return True
+        return False
+
