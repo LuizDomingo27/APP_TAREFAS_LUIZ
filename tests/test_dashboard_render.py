@@ -144,7 +144,7 @@ class TestIndicadores:
     def test_kpi_de_atrasadas_conta_so_a_pendente_vencida(self, painel):
         """As duas concluídas não entram, mesmo a que foi entregue tarde."""
         html = _todo_o_html(painel)
-        assert "⚠️ 1 atenção" in html
+        assert "1 exige atenção" in html
 
     def test_tarefa_com_dados_ruins_nao_some_do_total(self, painel):
         """Linha inconsistente continua contando — sumir calado é pior."""

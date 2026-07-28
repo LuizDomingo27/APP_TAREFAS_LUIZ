@@ -1,8 +1,17 @@
-"""CSS injetado — aproxima o Streamlit do manager_ui_prototype.html.
+"""CSS injetado — o sistema de design do app.
 
-O protótipo é Tailwind puro. Aqui as classes viraram variáveis CSS com os
-mesmos valores de slate/purple, e os seletores atacam os `data-testid` do
-Streamlit — que é o único gancho estável que ele expõe.
+Direção: console de operações. Denso, silencioso, feito para ser lido todo
+dia. Três decisões carregam o visual inteiro:
+
+  1. A base é cinza-frio quase neutro, não roxa. O fundo não compete com nada.
+  2. O roxo é reservado ao que é *clicável ou selecionado*. Se está roxo, você
+     pode mexer.
+  3. Cor saturada só aparece onde significa alguma coisa — status, prioridade,
+     situação de prazo. Fora disso, a tela é acromática de propósito: um
+     atraso em vermelho salta porque é a única coisa vermelha em volta.
+
+Os seletores atacam os `data-testid` e as classes `st-key-*` do Streamlit, que
+é o único gancho estável que ele expõe.
 
 Regras de acabamento seguidas ao longo do arquivo:
   - raio concêntrico: raio externo = raio interno + padding
@@ -15,37 +24,60 @@ import streamlit as st
 
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* paleta ClickUp do protótipo */
-  --roxo:        #7b68ee;
-  --roxo-escuro: #6452db;
-  --roxo-suave:  #f5f3ff;   /* purple-50 */
-  --rosa:        #ff007a;
+  /* Superfícies. A escada é curta de propósito — quatro degraus bastam para
+     hierarquia, e mais do que isso vira sujeira em tela escura. */
+  --bg-0: #0b0d12;   /* fundo da aplicação */
+  --bg-1: #12151c;   /* painéis, sidebar, cartões, tabelas */
+  --bg-2: #171b23;   /* elevado: campos, linha em hover */
+  --bg-3: #1e232d;   /* topo: chip, hover sobre elevado */
 
-  /* slate */
-  --s50:  #f8fafc;
-  --s100: #f1f5f9;
-  --s200: #e2e8f0;
-  --s300: #cbd5e1;
-  --s400: #94a3b8;
-  --s500: #64748b;
-  --s600: #475569;
-  --s700: #334155;
-  --s800: #1e293b;
-  --s900: #0f172a;
+  --linha:       #232833;   /* filete padrão */
+  --linha-forte: #2f3542;   /* divisor que precisa ser visto */
 
-  --sombra-card:  0 1px 2px rgba(15, 23, 42, .06), 0 1px 3px rgba(15, 23, 42, .04);
-  --sombra-hover: 0 4px 6px -1px rgba(15, 23, 42, .07), 0 2px 4px -2px rgba(15, 23, 42, .05);
+  --txt-1: #e7e9ee;  /* título e dado principal */
+  --txt-2: #99a0ad;  /* rótulo, apoio */
+  --txt-3: #697080;  /* legenda, placeholder */
+
+  /* Interativo. Um tom só, três intensidades. */
+  --acento:       #7c6cf5;
+  --acento-alto:  #9b8dff;
+  --acento-fraco: rgba(124, 108, 245, .13);
+  --acento-linha: rgba(124, 108, 245, .35);
+
+  /* Semânticas — o único lugar da interface onde cor quer dizer algo. */
+  --neutro: #8d95a3;
+  --info:   #5b93f5;
+  --alerta: #e0a34e;
+  --ok:     #3fb98a;
+  --erro:   #ef6461;
+
+  --chip-neutro-bg: rgba(141, 149, 163, .14); --chip-neutro-tx: #b2b9c5;
+  --chip-info-bg:   rgba(91, 147, 245, .15);  --chip-info-tx:   #8ab4fb;
+  --chip-alerta-bg: rgba(224, 163, 78, .15);  --chip-alerta-tx: #e9bb72;
+  --chip-ok-bg:     rgba(63, 185, 138, .15);  --chip-ok-tx:     #63d2a6;
+  --chip-erro-bg:   rgba(239, 100, 97, .15);  --chip-erro-tx:   #f58a83;
+
+  /* Em tela escura a sombra sozinha não separa nada — quem separa é o filete
+     de luz na borda de cima. As duas andam juntas o arquivo inteiro. */
+  --realce-topo: inset 0 1px 0 rgba(255, 255, 255, .04);
+  --sombra-1: 0 1px 2px rgba(0, 0, 0, .4);
+  --sombra-2: 0 10px 30px -12px rgba(0, 0, 0, .75);
+
+  /* Compatibilidade: a sidebar injeta a regra de "linha ativa" em tempo de
+     execução (só ali se sabe qual espaço está aberto) e cita estes nomes. */
+  --roxo: var(--acento);
+  --roxo-suave: var(--acento-fraco);
 }
 
-/* O tema claro é fixado em .streamlit/config.toml; o `color-scheme` aqui é o
+/* O tema escuro é fixado em .streamlit/config.toml; o `color-scheme` aqui é o
    par disso para o que o navegador desenha sozinho — barra de rolagem nativa,
-   calendário do date_input, fundo de autopreenchimento. Sem ele, num sistema
-   no escuro esses pedaços vinham escuros dentro de uma tela clara. */
+   calendário do date_input, fundo de autopreenchimento. Sem ele, esses pedaços
+   vinham claros dentro de uma tela escura. */
 html {
-  color-scheme: light;
+  color-scheme: dark;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -81,61 +113,91 @@ header[data-testid="stHeader"] {
 
 /* "Connecting" / "Running" com o peso visual do resto da interface. */
 [data-testid="stStatusWidget"] {
-  background: #fff;
-  border: 1px solid var(--s200);
+  background: var(--bg-2);
+  border: 1px solid var(--linha);
   border-radius: 9999px;
   padding: .125rem .625rem .125rem .25rem;
-  box-shadow: var(--sombra-card);
-  font-size: 11px; font-weight: 500; color: var(--s600);
+  box-shadow: var(--sombra-1);
+  font-size: 11px; font-weight: 500; color: var(--txt-2);
 }
 
-[data-testid="stAppViewContainer"] { background: var(--s100); }
+[data-testid="stAppViewContainer"] { background: var(--bg-0); }
+[data-testid="stMain"] { background: var(--bg-0); }
 
 .block-container {
   padding: 1.25rem 1.5rem 3rem;
   max-width: 100%;
 }
 
-/* barra de rolagem fina, igual ao protótipo */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* barra de rolagem fina, no tom da tela */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, .4); border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, .7); }
+::-webkit-scrollbar-thumb { background: #2b313d; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #3a4150; }
+
+/* Texto solto (st.markdown, st.caption, títulos de seção) — sem isto o
+   Streamlit escurece o corpo em cima do fundo escuro. */
+[data-testid="stMarkdownContainer"] { color: var(--txt-2); }
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stMarkdownContainer"] h4,
+[data-testid="stMarkdownContainer"] strong { color: var(--txt-1); }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {
+  color: var(--txt-3) !important;
+}
+
+/* O Streamlit declara `font-size: inherit` para todo <p> dentro de um bloco
+   de markdown, com a especificidade de uma classe + um elemento (0,1,1). Um
+   seletor de classe puro (`.painel-sub`) perde essa disputa e o parágrafo
+   volta aos 16px herdados do contêiner — o que apagava metade da escala
+   tipográfica do sistema. Repetir os nomes aqui, sob o `data-testid`, sobe
+   para (0,2,2) e resolve sem `!important`.
+   Todo <p> com classe própria do app precisa estar nesta lista. */
+[data-testid="stMarkdownContainer"] p.painel-sub  { font-size: 12px; }
+[data-testid="stMarkdownContainer"] p.secao-nota  { font-size: 12px; }
+[data-testid="stMarkdownContainer"] p.login-titulo { font-size: 17px; }
+[data-testid="stMarkdownContainer"] p.login-sub   { font-size: 12px; }
+[data-testid="stMarkdownContainer"] p.login-rodape { font-size: 11px; }
+[data-testid="stMarkdownContainer"] .pagina-topo p { font-size: 13px; }
 
 /* ------------------------------------------------------------------- sidebar */
 
 [data-testid="stSidebar"] {
-  background: #fff;
-  border-right: 1px solid var(--s200);
+  background: var(--bg-1);
+  border-right: 1px solid var(--linha);
   width: 260px !important;
 }
 [data-testid="stSidebar"] > div { padding-top: 0; }
 [data-testid="stSidebarContent"] { padding: 0 .75rem 1rem; }
-[data-testid="stSidebarCollapseButton"] button { color: var(--s400); }
+[data-testid="stSidebarCollapseButton"] button { color: var(--txt-3); }
 
 .ws-header {
   display: flex; align-items: center; gap: .625rem;
   padding: .875rem .25rem;
-  border-bottom: 1px solid var(--s200);
+  border-bottom: 1px solid var(--linha);
   margin: 0 -.25rem .75rem;
 }
+/* A marca é o único lugar com preenchimento roxo cheio: um quadrado de 32px
+   é pequeno o bastante para não puxar a tela para o roxo, e é o que ancora a
+   identidade num layout que de resto é cinza. */
 .ws-logo {
-  width: 32px; height: 32px; border-radius: 10px;
-  background: linear-gradient(to top right, var(--roxo), var(--rosa));
+  width: 32px; height: 32px; border-radius: 9px;
+  background: var(--acento);
   color: #fff; font-weight: 700; font-size: 13px;
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 6px -1px rgba(123, 104, 238, .25);
   flex-shrink: 0;
 }
-.ws-nome  { font-size: 13px; font-weight: 700; color: var(--s900); line-height: 1.2; }
-.ws-plano { font-size: 11px; color: var(--s500); }
+.ws-nome  { font-size: 13px; font-weight: 600; color: var(--txt-1); line-height: 1.2;
+            letter-spacing: -.01em; }
+.ws-plano { font-size: 11px; color: var(--txt-3); }
 
 /* Espaçamento em `padding`, não em `margin`: o contêiner de elemento do
    Streamlit mede só a caixa de texto, então a margem vazava para fora dele
    e o botão seguinte subia por cima do título. */
 .side-titulo {
-  font-size: 11px; font-weight: 600; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--s400);
+  font-size: 10px; font-weight: 600; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--txt-3);
   margin: 0; padding: .875rem .25rem .375rem;
 }
 
@@ -143,20 +205,20 @@ header[data-testid="stHeader"] {
 .espaco-linha {
   display: flex; align-items: center; justify-content: space-between;
   padding: .375rem .5rem; border-radius: 6px;
-  font-size: 12px; font-weight: 500; color: var(--s700);
+  font-size: 12px; font-weight: 500; color: var(--txt-2);
 }
 .espaco-linha .ponto {
   width: 10px; height: 10px; border-radius: 50%;
   display: inline-block; flex-shrink: 0; margin-right: .5rem;
 }
 .espaco-linha .contador {
-  font-size: 10px; color: var(--s400); font-weight: 400;
+  font-size: 10px; color: var(--txt-3); font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 .lista-linha {
   display: flex; align-items: center; gap: .5rem;
   padding: .25rem .5rem .25rem 1.5rem; border-radius: 6px;
-  font-size: 12px; font-weight: 500; color: var(--s500);
+  font-size: 12px; font-weight: 500; color: var(--txt-3);
 }
 
 /* Os itens da árvore são botões de verdade (o clique troca o escopo), mas
@@ -175,7 +237,7 @@ header[data-testid="stHeader"] {
   border: none; box-shadow: none; background: transparent;
   justify-content: flex-start; text-align: left;
   min-height: 32px; padding: .25rem .5rem;
-  border-radius: 6px; color: var(--s700);
+  border-radius: 6px; color: var(--txt-2);
 }
 /* O `justify-content` do <button> não basta: o Streamlit embrulha o rótulo
    num <div> próprio que recentraliza o texto. O alinhamento à esquerda tem
@@ -186,7 +248,7 @@ header[data-testid="stHeader"] {
 .st-key-nav_arvore .stButton button p {
   font-size: 12px; font-weight: 500; text-align: left; width: 100%;
 }
-.st-key-nav_arvore .stButton button:hover { background: var(--s100); }
+.st-key-nav_arvore .stButton button:hover { background: var(--bg-2); color: var(--txt-1); }
 
 /* Espaço e lista: um recuo à esquerda abre a canaleta onde o ponto colorido
    (ou o ícone) é posicionado por cima, já que rótulo de botão só aceita
@@ -198,7 +260,7 @@ header[data-testid="stHeader"] {
    o texto precisa começar depois disso — com 2rem as duas coisas se
    encostavam. */
 [class*="st-key-lst_wrap_"] .stButton button {
-  padding-left: 2.5rem; color: var(--s500);
+  padding-left: 2.5rem; color: var(--txt-3);
 }
 [class*="st-key-esp_wrap_"] .stButton button { padding-left: 1.375rem; }
 /* `top: 16px`, e não `50%`: o <span> é filho de um stElementContainer que o
@@ -210,10 +272,10 @@ header[data-testid="stHeader"] {
   z-index: 1; pointer-events: none;
 }
 .ponto-espaco {
-  left: .5rem; width: 10px; height: 10px; border-radius: 50%;
+  left: .5rem; width: 8px; height: 8px; border-radius: 50%;
 }
 .icone-lista {
-  left: 1.25rem; color: var(--s400);
+  left: 1.25rem; color: var(--txt-3);
   display: inline-flex; align-items: center;
 }
 /* O <span> solto vira um elemento de altura zero para não empurrar o botão:
@@ -232,7 +294,7 @@ header[data-testid="stHeader"] {
    (perfil + botão) ela precisa atravessar a sidebar inteira. */
 .st-key-rodape_perfil {
   padding-top: 1rem; margin-top: .75rem; margin-bottom: .875rem;
-  border-top: 1px solid var(--s200);
+  border-top: 1px solid var(--linha);
 }
 .st-key-rodape_perfil [data-testid="stHorizontalBlock"] { align-items: center; }
 /* O markdown do Streamlit carrega um `margin-bottom: -16px` que existe para
@@ -251,10 +313,10 @@ header[data-testid="stHeader"] {
 .st-key-rodape_perfil .stButton button {
   min-height: 32px; height: 32px; flex: 0 0 32px; padding: 0;
   border: none; box-shadow: none; background: transparent;
-  color: var(--s400); border-radius: 8px;
+  color: var(--txt-3); border-radius: 8px;
 }
 .st-key-rodape_perfil .stButton button:hover {
-  background: var(--s100); color: var(--s700);
+  background: var(--bg-2); color: var(--txt-1);
 }
 .st-key-rodape_perfil [data-testid="stIconMaterial"] { font-size: 18px; }
 /* O bloco de texto vira flex-column para que o avatar centre contra as
@@ -264,40 +326,77 @@ header[data-testid="stHeader"] {
   display: flex; flex-direction: column; justify-content: center;
   min-width: 0;
 }
-.perfil-nome  { font-size: 12px; font-weight: 600; color: var(--s800); line-height: 1.35; }
-.perfil-cargo { font-size: 10px; color: var(--s400); line-height: 1.35; }
+.perfil-nome  { font-size: 12px; font-weight: 600; color: var(--txt-1); line-height: 1.35; }
+.perfil-cargo { font-size: 10px; color: var(--txt-3); line-height: 1.35; }
 
+/* O avatar é o contraponto quente da tela: fundo roxo translúcido com o
+   filete cheio em volta, em vez do disco chapado. Numa lista de dez pessoas
+   dez discos roxos sólidos viravam um enfeite; assim ele identifica sem
+   gritar. */
 .avatar {
-  width: 32px; height: 32px; border-radius: 50%;
-  background: var(--roxo); color: #fff;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--acento-fraco);
+  border: 1px solid var(--acento-linha);
+  color: var(--acento-alto);
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 600; letter-spacing: .02em;
-  box-shadow: 0 0 0 2px rgba(123, 104, 238, .25);
   flex-shrink: 0;
 }
 .avatar.mini {
-  width: 20px; height: 20px; font-size: 9px; box-shadow: 0 0 0 1px #fff;
+  width: 20px; height: 20px; font-size: 9px;
 }
 
 /* ------------------------------------------------------------------- topo */
 
 .topbar {
-  background: #fff;
-  border: 1px solid var(--s200);
+  background: var(--bg-1);
+  border: 1px solid var(--linha);
   border-radius: 12px;
   padding: .75rem 1rem;
   margin-bottom: .75rem;
+  box-shadow: var(--realce-topo);
 }
 .migalhas {
   display: flex; align-items: center; gap: .5rem;
-  font-size: 12px; color: var(--s400);
+  font-size: 12px; color: var(--txt-3);
 }
-.migalhas .sep   { color: var(--s300); }
+.migalhas .sep   { color: var(--linha-forte); }
 .migalhas .atual {
-  font-weight: 600; color: var(--s800);
+  font-weight: 600; color: var(--txt-1);
   display: inline-flex; align-items: center; gap: .375rem;
 }
 .migalhas .atual .ponto { width: 8px; height: 8px; border-radius: 50%; }
+
+/* Cabeçalho de página — título e uma linha de contexto. Vale para o
+   dashboard e para qualquer tela que precise se apresentar. */
+.pagina-topo { margin-bottom: 1.125rem; }
+.pagina-topo h1 {
+  font-size: 20px; font-weight: 600; color: var(--txt-1);
+  letter-spacing: -.02em; margin: 0 0 .25rem; padding: 0;
+  line-height: 1.25;
+}
+.pagina-topo p {
+  font-size: 13px; color: var(--txt-3); margin: 0;
+  text-wrap: pretty; max-width: 68ch;
+}
+
+/* Título de seção dentro de uma página. O filete curto à esquerda é a única
+   marca decorativa do sistema, e é o que amarra as seções entre si. */
+.secao {
+  display: flex; align-items: center; gap: .5rem;
+  font-size: 13px; font-weight: 600; color: var(--txt-1);
+  letter-spacing: -.01em;
+  margin: 0 0 .625rem; padding: 0;
+}
+.secao::before {
+  content: ""; flex-shrink: 0;
+  width: 2px; height: 13px; border-radius: 9999px;
+  background: var(--acento);
+}
+.secao-nota {
+  font-size: 12px; color: var(--txt-3); margin: -.25rem 0 .875rem;
+  text-wrap: pretty; max-width: 72ch;
+}
 
 /* ------------------------------------------------------------------- kanban */
 
@@ -305,14 +404,14 @@ header[data-testid="stHeader"] {
   display: flex; align-items: center; gap: .5rem;
   padding: 0 .25rem .625rem;
 }
-.col-topo .ponto { width: 10px; height: 10px; border-radius: 50%; }
+.col-topo .ponto { width: 8px; height: 8px; border-radius: 50%; }
 .col-topo h3 {
-  font-size: 12px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: .04em; color: var(--s700); margin: 0;
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--txt-2); margin: 0;
 }
 .col-topo .contador {
   border-radius: 9999px; padding: .1rem .5rem;
-  font-size: 10px; font-weight: 700;
+  font-size: 10px; font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -322,29 +421,29 @@ header[data-testid="stHeader"] {
    Streamlit que a substituiu quando os cards ganharam botão. */
 .coluna,
 [class*="st-key-coluna_"] {
-  background: rgba(226, 232, 240, .5);
-  border: 1px solid rgba(226, 232, 240, .8);
+  background: rgba(255, 255, 255, .018);
+  border: 1px solid var(--linha);
   border-radius: 12px;
   padding: .75rem;
   min-height: 180px;
 }
 [class*="st-key-coluna_"] { gap: .625rem; }
 
-/* Card clicável: o container É o card — moldura branca, sombra e âncora de
+/* Card clicável: o container É o card — moldura, sombra e âncora de
    posicionamento — e o botão que veio depois é esticado por cima. Com a
    caixa aqui e não num <div> do markdown, o seletor de status também cai
    dentro dela. O rótulo do botão continua no DOM (é o título da tarefa,
    para leitor de tela), só que sem tamanho. */
 [class*="st-key-card_"] {
   position: relative;
-  background: #fff;
-  border: 1px solid rgba(226, 232, 240, .8);
+  background: var(--bg-2);
+  border: 1px solid var(--linha);
   border-radius: 8px;
   padding: .75rem;
-  box-shadow: var(--sombra-card);
+  box-shadow: var(--realce-topo);
   gap: 0;
-  transition-property: box-shadow, border-color;
-  transition-duration: 150ms;
+  transition-property: background-color, border-color, transform;
+  transition-duration: 140ms;
   transition-timing-function: ease-out;
 }
 /* O `width` do contêiner de elemento vem do Streamlit e não é `auto`, então
@@ -370,11 +469,11 @@ header[data-testid="stHeader"] {
   overflow: hidden; white-space: nowrap; clip-path: inset(50%);
 }
 [class*="st-key-card_"] [class*="st-key-abrir_"] .stButton button:hover {
-  background: rgba(123, 104, 238, .05);
+  background: transparent;
 }
 [class*="st-key-card_"]:hover {
-  box-shadow: var(--sombra-hover);
-  border-color: rgba(123, 104, 238, .5);
+  background: var(--bg-3);
+  border-color: var(--acento-linha);
 }
 /* O Streamlit fecha todo bloco de markdown com `margin-bottom: -1rem`. Aqui
    isso comeria o espaço entre o corpo do card e o seletor de status. */
@@ -394,7 +493,7 @@ header[data-testid="stHeader"] {
   min-height: 28px !important;
   border-radius: 6px !important;
   font-size: 10px !important;
-  background: var(--s50) !important;
+  background: var(--bg-1) !important;
 }
 /* A coluna do Kanban é estreita: sem apertar o padding interno, "Em Progresso"
    e "Concluído" chegavam truncados como "Em Pro…" na largura padrão. */
@@ -423,12 +522,25 @@ header[data-testid="stHeader"] {
   padding-left: 0; padding-right: .125rem;
 }
 
+/* A lista suspensa nasce clara se o BaseWeb não for corrigido à mão. */
+[data-testid="stSelectboxVirtualDropdown"],
+[data-baseweb="popover"] [role="listbox"] {
+  background: var(--bg-2) !important;
+  border: 1px solid var(--linha-forte);
+  border-radius: 10px;
+  box-shadow: var(--sombra-2);
+}
+[data-baseweb="popover"] [role="option"] { color: var(--txt-2) !important; }
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="popover"] [role="option"][aria-selected="true"] {
+  background: var(--bg-3) !important; color: var(--txt-1) !important;
+}
+
 /* -------------------------------------------------------- modal de detalhe */
 
-/* Os dois modais (criar e detalhe) usam a mesma largura, a do modal de tarefa
-   do protótipo (max-w-md = 448px). O `width` do `st.dialog` sozinho não serve:
-   mesmo no "small" o Streamlit dimensiona por porcentagem da viewport, então
-   numa tela larga o formulário esticava até quase a borda. */
+/* O `width` do `st.dialog` sozinho não serve: mesmo no "small" o Streamlit
+   dimensiona por porcentagem da viewport, então numa tela larga o formulário
+   esticava até quase a borda. */
 /* `> div`, e não `div[role="dialog"]`: nesta versão o Streamlit não põe role
    nenhum na caixa do modal, e a regra antiga não casava com nada — era por
    isso que o detalhe abria com os 500px e a altura livre do padrão.
@@ -440,10 +552,14 @@ header[data-testid="stHeader"] {
   max-width: calc(100vw - 2rem) !important;
   max-height: min(660px, calc(100vh - 4rem)) !important;
   overflow-y: auto;
+  background: var(--bg-1) !important;
+  border: 1px solid var(--linha-forte);
+  border-radius: 14px;
+  box-shadow: var(--sombra-2);
 }
 
 /* Modal compacto: o espaçamento padrão do Streamlit é pensado para uma
-   página inteira, e dentro de 448px ele dobra a altura do formulário. */
+   página inteira, e dentro do modal ele dobra a altura do formulário. */
 [data-testid="stDialog"] [data-testid="stVerticalBlock"] { gap: .5rem; }
 [data-testid="stDialog"] [data-testid="stElementContainer"] { margin-bottom: 0; }
 [data-testid="stDialog"] hr,
@@ -451,54 +567,52 @@ header[data-testid="stHeader"] {
 [data-testid="stDialog"] [data-testid="stTextArea"] textarea { min-height: 72px; }
 [data-testid="stDialog"] label[data-testid="stWidgetLabel"] { margin-bottom: .125rem; }
 
-/* Botões de excluir: roxo bem suave, com um leve brilho neon. Fundo lavanda
-   claro e texto/borda roxos em vez do vermelho de perigo — o app inteiro é
-   roxo, então a exclusão pede confirmação em dois passos e não precisa gritar.
-   O "Sim, excluir" nasce `primary` (roxo cheio); aqui ele também vira o suave,
-   para os dois botões de exclusão falarem a mesma língua. */
+/* Excluir é destrutivo e o botão diz isso: vermelho contido, sem
+   preenchimento. A confirmação já é em dois passos, então o gatilho não
+   precisa gritar — precisa ser inconfundível.
+   O "Sim, excluir" nasce `primary` (roxo cheio); aqui ele também vira o
+   vermelho, para os dois botões falarem a mesma língua. */
 .st-key-btn_excluir button,
 .st-key-btn_confirmar_exclusao button {
-  background: var(--roxo-suave) !important;
-  color: var(--roxo) !important;
-  border: 1px solid #ddd6fe !important;   /* violet-200 */
-  box-shadow: 0 0 0 1px rgba(123, 104, 238, .12),
-              0 0 12px rgba(123, 104, 238, .28) !important;
-  transition: background-color 150ms, box-shadow 150ms;
+  background: var(--chip-erro-bg) !important;
+  color: var(--chip-erro-tx) !important;
+  border: 1px solid rgba(239, 100, 97, .35) !important;
+  box-shadow: none !important;
+  transition-property: background-color, border-color;
+  transition-duration: 150ms;
 }
 .st-key-btn_excluir button:hover,
 .st-key-btn_confirmar_exclusao button:hover {
-  background: #ede9fe !important;          /* violet-100 */
-  border-color: var(--roxo) !important;
-  box-shadow: 0 0 0 1px rgba(123, 104, 238, .2),
-              0 0 16px rgba(123, 104, 238, .45) !important;
+  background: rgba(239, 100, 97, .22) !important;
+  border-color: var(--erro) !important;
 }
 .st-key-btn_excluir button p,
-.st-key-btn_confirmar_exclusao button p { color: var(--roxo) !important; }
+.st-key-btn_confirmar_exclusao button p { color: var(--chip-erro-tx) !important; }
 
 .detalhe-codigo {
   font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-  font-size: 11px; color: var(--s400); letter-spacing: .04em;
+  font-size: 11px; color: var(--txt-3); letter-spacing: .06em;
   margin-bottom: .25rem;
 }
 .secao-titulo {
   display: flex; align-items: center; gap: .5rem;
-  font-size: 12px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: .04em; color: var(--s700);
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--txt-2);
   margin-bottom: .5rem;
 }
 .contador-simples {
-  font-size: 10px; font-weight: 600; color: var(--s500);
-  background: var(--s100); border-radius: 9999px; padding: .1rem .45rem;
+  font-size: 10px; font-weight: 600; color: var(--txt-2);
+  background: var(--bg-3); border-radius: 9999px; padding: .1rem .45rem;
   font-variant-numeric: tabular-nums;
 }
 .comentario { display: flex; gap: .5rem; padding: .25rem 0; }
 .comentario-topo {
-  font-size: 11px; font-weight: 600; color: var(--s700);
+  font-size: 11px; font-weight: 600; color: var(--txt-1);
   display: flex; align-items: baseline; gap: .5rem;
 }
-.comentario-data { font-size: 10px; font-weight: 400; color: var(--s400); }
+.comentario-data { font-size: 10px; font-weight: 400; color: var(--txt-3); }
 .comentario-texto {
-  font-size: 12px; color: var(--s600); line-height: 1.5;
+  font-size: 12px; color: var(--txt-2); line-height: 1.55;
   text-wrap: pretty;
 }
 
@@ -510,398 +624,371 @@ header[data-testid="stHeader"] {
 }
 .card-codigo {
   font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-  font-size: 10px; font-weight: 500; color: var(--s400);
-  font-variant-numeric: tabular-nums;
+  font-size: 10px; font-weight: 500; color: var(--txt-3);
+  font-variant-numeric: tabular-nums; letter-spacing: .04em;
 }
 [class*="st-key-card_"] h4 {
-  font-size: 12px; font-weight: 600; color: var(--s800);
-  line-height: 1.4; margin: 0 0 .5rem; padding: 0;
+  font-size: 12.5px; font-weight: 600; color: var(--txt-1);
+  line-height: 1.45; margin: 0 0 .5rem; padding: 0;
   text-wrap: pretty;
 }
 .card-rodape {
   display: flex; align-items: center; justify-content: space-between;
   padding-top: .5rem; margin-top: .75rem;
-  border-top: 1px solid var(--s100);
-  font-size: 11px; color: var(--s400);
+  border-top: 1px solid var(--linha);
+  font-size: 11px; color: var(--txt-3);
   font-variant-numeric: tabular-nums;
 }
 .card-rodape .meta { display: flex; align-items: center; gap: .625rem; }
 .meta-item { display: inline-flex; align-items: center; gap: .25rem; }
 
-/* badges */
+/* Prioridade: texto colorido sobre fundo translúcido da mesma família. Em
+   tela escura, pastel chapado (o que o tema claro usava) some — o que lê é o
+   texto saturado. */
 .badge {
   display: inline-flex; align-items: center; gap: .25rem;
   font-size: 10px; font-weight: 600;
-  padding: .125rem .5rem; border-radius: 4px;
-  white-space: nowrap;
+  padding: .15rem .5rem; border-radius: 5px;
+  white-space: nowrap; letter-spacing: .01em;
 }
-.badge.urgente { background: #fee2e2; color: #dc2626; }
-.badge.alta    { background: #fef3c7; color: #d97706; }
-.badge.normal  { background: #dbeafe; color: #2563eb; }
-.badge.baixa   { background: var(--s100); color: var(--s500); }
-
-.tag {
-  display: inline-block;
-  background: var(--s100); color: var(--s600);
-  font-size: 10px; font-weight: 500;
-  padding: .125rem .5rem; border-radius: 9999px;
-}
+.badge.urgente { background: var(--chip-erro-bg);   color: var(--chip-erro-tx); }
+.badge.alta    { background: var(--chip-alerta-bg); color: var(--chip-alerta-tx); }
+.badge.normal  { background: var(--chip-info-bg);   color: var(--chip-info-tx); }
+.badge.baixa   { background: var(--chip-neutro-bg); color: var(--chip-neutro-tx); }
 
 .vazio {
-  text-align: center; color: var(--s400);
+  text-align: center; color: var(--txt-3);
   font-size: 11px; padding: 1.25rem .5rem;
-  border: 1px dashed var(--s300); border-radius: 8px;
+  border: 1px dashed var(--linha-forte); border-radius: 8px;
 }
 
-/* ---------------------------------------------------------------- kpi cards */
+/* ---------------------------------------------------------------- indicadores */
 
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 1100px) {
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* Sem borda-esquerda grossa e sem faixa em gradiente: o acento é um ponto de
+   6px ao lado do rótulo. Quatro cartões lado a lado com uma barra colorida
+   cada viravam um semáforo — o ponto dá a mesma leitura por um centésimo da
+   tinta. */
 .kpi-card {
   position: relative;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, .55);
+  background: var(--bg-1);
+  border: 1px solid var(--linha);
   border-radius: 12px;
-  padding: 20px 22px 16px 22px;
-  border-left: 4px solid var(--kpi-accent, #6452db);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, .04),
-              0 4px 14px rgba(15, 23, 42, .03),
-              0 0 0 1px rgba(255, 255, 255, .7) inset;
-  transition: transform .2s ease, box-shadow .2s ease;
-  overflow: hidden;
+  padding: 14px 16px 15px;
+  box-shadow: var(--realce-topo);
+  transition-property: border-color, background-color;
+  transition-duration: 160ms;
+  min-width: 0;
 }
-
-.kpi-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--kpi-accent, #6452db) 0%, transparent 100%);
-  opacity: .35;
-}
-
-.kpi-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(15, 23, 42, .08),
-              0 8px 28px rgba(15, 23, 42, .05);
-}
+.kpi-card:hover { border-color: var(--linha-forte); background: var(--bg-2); }
 
 .kpi-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  margin-bottom: 8px;
-  font-family: 'Inter', sans-serif;
+  display: flex; align-items: center; gap: .4rem;
+  font-size: 10.5px; font-weight: 600;
+  color: var(--txt-3);
+  text-transform: uppercase; letter-spacing: .08em;
+  margin-bottom: 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kpi-label::before {
+  content: ""; flex-shrink: 0;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--kpi-accent, var(--acento));
 }
 
 .kpi-value {
-  font-size: 28px;
-  font-weight: 800;
-  color: #0f172a;
-  line-height: 1.1;
-  margin-bottom: 6px;
-  font-family: 'Inter', sans-serif;
+  font-size: 26px; font-weight: 600;
+  color: var(--txt-1);
+  line-height: 1.05; margin-bottom: 6px;
+  letter-spacing: -.03em;
   font-variant-numeric: tabular-nums;
+}
+.kpi-value .unidade {
+  font-size: 13px; font-weight: 500; color: var(--txt-3);
+  letter-spacing: 0; margin-left: .18em;
 }
 
 .kpi-delta {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  font-family: 'Inter', sans-serif;
+  font-size: 11px; font-weight: 500; color: var(--txt-3);
+  font-variant-numeric: tabular-nums;
 }
+.kpi-delta--positive { color: var(--chip-ok-tx); }
+.kpi-delta--negative { color: var(--chip-erro-tx); }
+.kpi-delta--warning  { color: var(--chip-alerta-tx); }
 
-.kpi-delta--positive { color: #10b981; }
-.kpi-delta--negative { color: #ef4444; }
-.kpi-delta--warning  { color: #f59e0b; }
+/* ------------------------------------------------------------------- tabela */
 
-/* ------------------------------------------------------------------- lista */
-
-/* Wrapper principal — glassmorphism sutil com borda delicada */
+/* Uma tabela de operação é lida de cima para baixo, procurando uma linha.
+   Todo o desenho serve a isso: filete quase invisível entre linhas, zebra
+   fraquíssima para dar o trilho horizontal, e a linha sob o cursor subindo
+   um degrau de superfície. Sem borda vertical nenhuma — coluna se separa
+   por alinhamento e espaço, não por traço. */
 .tabela-wrap {
-  background: #fff;
-  border: 1px solid rgba(226, 232, 240, .6);
-  border-radius: 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--linha);
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, .04),
-              0 4px 12px rgba(15, 23, 42, .03),
-              0 0 0 1px rgba(255, 255, 255, .7) inset;
+  box-shadow: var(--realce-topo), var(--sombra-2);
 }
 
-/* Header da tabela — barra superior com gradiente sutil */
 .tabela-topo {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--s200);
-  background: linear-gradient(135deg, rgba(123, 104, 238, .03) 0%, rgba(255, 0, 122, .02) 100%);
-  display: flex; align-items: center; justify-content: space-between;
+  padding: .875rem 1.25rem;
+  border-bottom: 1px solid var(--linha);
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
 }
 .tabela-topo > span:first-child {
-  font-size: 14px; font-weight: 700; color: var(--s800);
+  font-size: 13px; font-weight: 600; color: var(--txt-1);
   letter-spacing: -.01em;
   display: inline-flex; align-items: center; gap: .5rem;
 }
 .tabela-topo > span:first-child::before {
-  content: ""; display: inline-block;
-  width: 3px; height: 18px; border-radius: 9999px;
-  background: linear-gradient(to bottom, var(--roxo), var(--rosa));
-  flex-shrink: 0;
+  content: ""; display: inline-block; flex-shrink: 0;
+  width: 2px; height: 13px; border-radius: 9999px;
+  background: var(--acento);
 }
 .tabela-topo span.sub {
-  font-size: 11px; font-weight: 700; color: #ffffff;
-  background: linear-gradient(135deg, #6452db 0%, #4c1d95 100%);
-  padding: .3rem .75rem; border-radius: 9999px;
-  box-shadow: 0 2px 6px rgba(100, 82, 219, .35);
-  letter-spacing: .02em;
+  font-size: 11px; font-weight: 500; color: var(--txt-3);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-/* Resumo de status acima da tabela */
+/* Resumo de status acima da tabela: quatro contadores discretos, sem pílula
+   colorida — o ponto já diz de qual status é. */
 .tabela-resumo {
-  display: flex; align-items: center; gap: .375rem;
-  padding: .625rem 1.25rem; border-bottom: 1px solid var(--s100);
-  background: var(--s50);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 1.25rem;
+  padding: .625rem 1.25rem; border-bottom: 1px solid var(--linha);
+  background: rgba(255, 255, 255, .012);
 }
 .tabela-resumo-item {
-  display: inline-flex; align-items: center; gap: .375rem;
-  font-size: 11px; font-weight: 500; color: var(--s600);
-  padding: .25rem .625rem; border-radius: 9999px;
-  background: #fff; border: 1px solid var(--s200);
+  display: inline-flex; align-items: center; gap: .4rem;
+  font-size: 11.5px; font-weight: 500; color: var(--txt-3);
   font-variant-numeric: tabular-nums;
-  transition: border-color 150ms, box-shadow 150ms;
-}
-.tabela-resumo-item:hover {
-  border-color: var(--s300);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
 }
 .tabela-resumo-item .ponto-mini {
-  width: 7px; height: 7px; border-radius: 50%;
+  width: 6px; height: 6px; border-radius: 50%;
   display: inline-block; flex-shrink: 0;
 }
 .tabela-resumo-item strong {
-  font-weight: 700;
-  background: linear-gradient(135deg, #6452db 0%, #4c1d95 100%);
-  color: #ffffff;
-  padding: .1rem .45rem;
-  border-radius: 9999px;
-  font-size: 10px;
-  margin-left: .15rem;
-  box-shadow: 0 1px 3px rgba(100, 82, 219, .3);
+  font-weight: 600; color: var(--txt-1); margin-left: .1rem;
 }
 
-/* Tabela principal */
 table.tarefas {
   width: 100%; border-collapse: separate; border-spacing: 0;
-  font-size: 13px; color: var(--s700); text-align: left;
+  font-size: 13px; color: var(--txt-2); text-align: left;
 }
 
-/* Cabeçalho — sticky, uppercase micro, fundo sólido */
-table.tarefas thead {
-  position: sticky; top: 0; z-index: 1;
-}
-table.tarefas thead tr {
-  background: var(--s100);
-}
+/* O Streamlit estiliza toda tabela nascida de markdown com uma borda de 1px
+   nos QUATRO lados de cada célula — e é dali que a nossa também nasce. Sem
+   este reset a tabela vinha em grade, com um filete vertical entre cada par
+   de colunas; a regra de `border-bottom` sozinha não desfazia os outros três.
+   Coluna aqui se separa por alinhamento e espaço, não por traço. */
+table.tarefas th, table.tarefas td { border: none; }
+
+table.tarefas thead { position: sticky; top: 0; z-index: 1; }
+table.tarefas thead tr { background: var(--bg-2); }
 table.tarefas th {
-  padding: .75rem 1rem;
-  font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .06em;
-  color: var(--s700);
-  border-bottom: 1px solid var(--s200);
+  padding: .7rem 1rem;
+  font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--txt-3);
+  border-bottom: 1px solid var(--linha);
   white-space: nowrap;
 }
-table.tarefas th:first-child { padding-left: 1.25rem; width: 36px; }
+table.tarefas th:first-child { padding-left: 1.25rem; }
 table.tarefas th:last-child  { padding-right: 1.25rem; }
 
-/* Células */
+/* Linhas altas: 14px em cima e embaixo dão os ~46px de altura que deixam a
+   varredura confortável sem virar lista de cartões. */
 table.tarefas td {
-  padding: .75rem 1rem;
-  border-bottom: 1px solid rgba(241, 245, 249, .8);
+  padding: .875rem 1rem;
+  border-bottom: 1px solid var(--linha);
   vertical-align: middle;
 }
 table.tarefas td:first-child { padding-left: 1.25rem; }
 table.tarefas td:last-child  { padding-right: 1.25rem; }
 
-/* Linhas — hover suave com left-border animada */
 table.tarefas tbody tr {
-  position: relative;
-  transition: background-color 180ms ease, box-shadow 180ms ease;
+  transition-property: background-color;
+  transition-duration: 120ms;
 }
-table.tarefas tbody tr:hover {
-  background: linear-gradient(90deg, rgba(123, 104, 238, .04) 0%, rgba(248, 250, 252, .8) 100%);
-}
+table.tarefas tbody tr:nth-child(even) { background: rgba(255, 255, 255, .014); }
+table.tarefas tbody tr:hover { background: var(--bg-2); }
 table.tarefas tbody tr:last-child td { border-bottom: none; }
 
-/* Célula do nome — destaque visual principal */
+/* Célula do nome — o dado que a pessoa está procurando. */
 table.tarefas td.nome {
-  font-weight: 600; color: var(--s800);
-  line-height: 1.4;
-  max-width: 320px;
+  font-weight: 500; color: var(--txt-1);
+  line-height: 1.45;
+  max-width: 380px;
 }
 table.tarefas td.nome .card-codigo {
-  display: inline-flex; align-items: center;
-  padding: .125rem .375rem;
-  background: var(--s100); border-radius: 4px;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-  font-size: 10px; font-weight: 500; color: var(--s400);
-  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  padding: .1rem .35rem; margin-right: .45rem;
+  background: var(--bg-3); border-radius: 4px;
+  color: var(--txt-3);
   vertical-align: middle;
-  margin-right: .375rem;
 }
 
-/* Célula da data */
 table.tarefas td.data {
   font-variant-numeric: tabular-nums;
-  font-size: 12px; font-weight: 600;
-  color: var(--s800);
+  font-size: 12.5px; font-weight: 500;
+  color: var(--txt-2);
+  white-space: nowrap;
 }
 
-/* Badge de destaque — Roxo escuro com fonte Branco Neve */
-.badge-destaque {
-  display: inline-flex; align-items: center;
-  background: linear-gradient(135deg, #6452db 0%, #4c1d95 100%);
-  color: #ffffff !important;
-  font-weight: 700; font-size: 11px;
-  padding: .15rem .55rem; border-radius: 9999px;
-  box-shadow: 0 1px 4px rgba(100, 82, 219, .3);
-  letter-spacing: .02em;
+/* Número em destaque dentro de texto corrido (rodapés, resumos). */
+.numero-destaque {
+  font-weight: 600; color: var(--txt-1);
   font-variant-numeric: tabular-nums;
 }
 
-/* Checkbox de conclusão — redesenhado */
+/* Checkbox de conclusão */
 .check {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 18px; height: 18px;
-  border: 2px solid var(--s300); border-radius: 5px;
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--linha-forte); border-radius: 5px;
   vertical-align: middle;
-  transition: border-color 150ms, background-color 150ms;
+  transition-property: border-color;
+  transition-duration: 140ms;
 }
-table.tarefas tbody tr:hover .check {
-  border-color: var(--roxo);
-}
+table.tarefas tbody tr:hover .check { border-color: var(--acento-linha); }
 .check.feito {
   border: none; width: auto; height: auto;
-  color: #10b981;
-  background: none;
-}
-.check.feito svg {
-  filter: drop-shadow(0 0 3px rgba(16, 185, 129, .35));
+  color: var(--ok); background: none;
 }
 
-/* Pill de status — redesenhada com borda e dot */
+/* Pílula de status: fundo translúcido + ponto. É a mesma linguagem do resumo
+   e do Kanban, então status se reconhece pela cor em qualquer tela. */
 .pill-status {
-  display: inline-flex; align-items: center; gap: .375rem;
+  display: inline-flex; align-items: center; gap: .4rem;
   font-size: 11px; font-weight: 600;
-  padding: .25rem .625rem;
+  padding: .22rem .6rem;
   border-radius: 9999px;
   white-space: nowrap;
-  border: 1px solid transparent;
-  transition: transform 120ms ease;
+  letter-spacing: .01em;
 }
-.pill-status:hover { transform: scale(1.03); }
 .pill-status::before {
   content: ""; display: inline-block;
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor;
   flex-shrink: 0;
 }
-.pill-status[data-status="afazer"]       { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
-.pill-status[data-status="afazer"]::before { background: #94a3b8; }
-.pill-status[data-status="emprogresso"]  { background: #eff6ff; color: #1d4ed8; border-color: #dbeafe; }
-.pill-status[data-status="emprogresso"]::before { background: #3b82f6; }
-.pill-status[data-status="emrevisao"]    { background: #fffbeb; color: #b45309; border-color: #fef3c7; }
-.pill-status[data-status="emrevisao"]::before { background: #f59e0b; }
-.pill-status[data-status="concluido"]    { background: #ecfdf5; color: #047857; border-color: #d1fae5; }
-.pill-status[data-status="concluido"]::before { background: #10b981; }
+.pill-status[data-status="afazer"]      { background: var(--chip-neutro-bg); color: var(--chip-neutro-tx); }
+.pill-status[data-status="emprogresso"] { background: var(--chip-info-bg);   color: var(--chip-info-tx); }
+.pill-status[data-status="emrevisao"]   { background: var(--chip-alerta-bg); color: var(--chip-alerta-tx); }
+.pill-status[data-status="concluido"]   { background: var(--chip-ok-bg);     color: var(--chip-ok-tx); }
 
-/* Indicador visual de atraso */
+/* Atraso: o único elemento animado da tela, e por isso o que o olho acha
+   primeiro numa lista longa. Respeita quem pediu menos movimento. */
 .data-atrasada {
-  color: #dc2626 !important; font-weight: 600;
-  display: inline-flex; align-items: center; gap: .25rem;
+  color: var(--chip-erro-tx) !important; font-weight: 600;
+  display: inline-flex; align-items: center; gap: .4rem;
 }
 .data-atrasada::before {
   content: ""; display: inline-block;
-  width: 6px; height: 6px; border-radius: 50%;
-  background: #dc2626;
-  animation: pulso-atraso 1.5s ease-in-out infinite;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--erro);
+  animation: pulso-atraso 1.8s ease-in-out infinite;
   flex-shrink: 0;
 }
 @keyframes pulso-atraso {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: .4; transform: scale(.8); }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .data-atrasada::before { animation: none; }
 }
 
-/* Responsável inline — foto + nome alinhados */
 .responsavel-cell {
   display: inline-flex; align-items: center; gap: .5rem;
-  font-size: 12px; font-weight: 500; color: var(--s600);
+  font-size: 12.5px; font-weight: 500; color: var(--txt-2);
+  white-space: nowrap;
 }
-.responsavel-cell .avatar.mini {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(123, 104, 238, .15);
-}
-.responsavel-cell.sem {
-  color: var(--s400); font-style: italic; font-weight: 400;
-}
+.responsavel-cell.sem { color: var(--txt-3); font-weight: 400; }
 
-/* Tags redesenhadas com alto contraste */
 .tag {
   display: inline-flex; align-items: center;
-  background: #f3e8ff;
-  color: #6b21a8;
-  font-size: 11px; font-weight: 600;
-  padding: .2rem .55rem; border-radius: 9999px;
-  border: 1px solid #e9d5ff;
+  background: var(--bg-3);
+  color: var(--txt-2);
+  font-size: 10.5px; font-weight: 500;
+  padding: .15rem .5rem; border-radius: 5px;
+  border: 1px solid var(--linha);
   white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(107, 33, 168, .08);
-  transition: border-color 150ms, background 150ms;
+  transition-property: border-color, color;
+  transition-duration: 140ms;
 }
-.tag:hover {
-  border-color: var(--roxo);
-  background: var(--roxo-suave);
-  color: var(--roxo);
-}
-.tags-cell {
-  display: flex; flex-wrap: wrap; gap: .25rem;
-}
+.tag:hover { border-color: var(--acento-linha); color: var(--acento-alto); }
+.tags-cell { display: flex; flex-wrap: wrap; gap: .25rem; }
 
-/* Barra de rodapé da tabela */
 .tabela-rodape {
   padding: .75rem 1.25rem;
-  border-top: 1px solid var(--s200);
-  background: var(--s50);
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: 12px; font-weight: 600; color: var(--s700);
+  border-top: 1px solid var(--linha);
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  font-size: 12px; color: var(--txt-3);
   font-variant-numeric: tabular-nums;
 }
 .tabela-rodape .concluidas {
-  display: inline-flex; align-items: center; gap: .5rem;
+  display: inline-flex; align-items: center; gap: .625rem;
 }
 .tabela-rodape .barra-progresso {
-  width: 80px; height: 6px; border-radius: 9999px;
-  background: var(--s200); overflow: hidden;
+  width: 96px; height: 4px; border-radius: 9999px;
+  background: var(--bg-3); overflow: hidden;
 }
 .tabela-rodape .barra-progresso-fill {
-  height: 100%; border-radius: 9999px;
-  background: linear-gradient(90deg, var(--roxo), #10b981);
-  transition: width 300ms ease;
+  display: block; height: 100%; border-radius: 9999px;
+  background: var(--ok);
+  transition-property: width;
+  transition-duration: 320ms;
+}
+
+/* Barra de progresso inline, usada nas tabelas do dashboard. */
+.progresso {
+  display: flex; align-items: center; gap: .625rem;
+  min-width: 130px;
+}
+.progresso-trilho {
+  flex: 1; height: 4px; border-radius: 9999px;
+  background: var(--bg-3); overflow: hidden;
+}
+.progresso-fill { display: block; height: 100%; background: var(--ok); }
+.progresso-num {
+  font-size: 11.5px; font-weight: 600; color: var(--txt-2);
+  min-width: 38px; text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ------------------------------------------------------------------ equipe */
 
-/* Painel branco sobre o fundo slate — mesma moldura da tabela da Lista e da
-   topbar, para a tela de Equipe não parecer de outro app. */
+/* A tela de Equipe é um formulário de administração, não um painel de dados:
+   linha de leitura curta lê melhor que a largura toda. 1080px é o teto e 80%
+   é a proporção pedida — o que for menor vence, então em telas médias ela
+   respira e em telas largas não vira uma faixa perdida no meio. */
+.st-key-pagina_usuarios {
+  width: min(80%, 1080px);
+  margin-inline: auto;
+}
+@media (max-width: 900px) {
+  .st-key-pagina_usuarios { width: 100%; }
+}
+
+/* Painel sobre o fundo — mesma moldura da tabela e da topbar, para a tela de
+   Equipe não parecer de outro app. */
 [class*="st-key-painel_"] {
-  background: #fff;
-  border: 1px solid var(--s200);
-  border-radius: 12px;
-  padding: 1rem 1.125rem 1.125rem;
-  box-shadow: var(--sombra-card);
-  margin-bottom: .75rem;
+  background: var(--bg-1);
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+  padding: 1.125rem 1.25rem 1.25rem;
+  box-shadow: var(--realce-topo);
+  margin-bottom: .875rem;
   gap: 0;
 }
 .painel-topo {
@@ -909,12 +996,13 @@ table.tarefas tbody tr:hover .check {
   margin-bottom: .125rem;
 }
 .painel-topo h3 {
-  font-size: 13px; font-weight: 700; color: var(--s800);
+  font-size: 13px; font-weight: 600; color: var(--txt-1);
+  letter-spacing: -.01em;
   margin: 0; padding: 0;
 }
 .painel-sub {
-  font-size: 11px; color: var(--s400); margin: 0 0 .5rem;
-  text-wrap: pretty;
+  font-size: 12px; color: var(--txt-3); margin: 0 0 .625rem;
+  text-wrap: pretty; max-width: 70ch;
 }
 
 /* Uma linha por pessoa, lida como tabela: filete acima de cada uma — o
@@ -923,15 +1011,15 @@ table.tarefas tbody tr:hover .check {
    embrulha cada container num <div> próprio, então as linhas nunca são
    irmãs e o seletor `+` não casaria nunca. */
 [class*="st-key-linha_"], [class*="st-key-conv_linha_"] {
-  padding: .4rem .5rem;
-  margin: 0 -.5rem;
-  border-top: 1px solid var(--s100);
+  padding: .5rem .75rem;
+  margin: 0 -.75rem;
+  border-top: 1px solid var(--linha);
   gap: 0;
   transition-property: background-color;
   transition-duration: 120ms;
 }
 [class*="st-key-linha_"]:hover, [class*="st-key-conv_linha_"]:hover {
-  background: var(--s50);
+  background: var(--bg-2);
 }
 /* O `margin-bottom: -1rem` do markdown encolheria a coluna do nome e tiraria
    o avatar do eixo dos botões vizinhos. */
@@ -943,32 +1031,35 @@ table.tarefas tbody tr:hover .check {
 .pessoa { display: flex; align-items: center; gap: .625rem; min-width: 0; }
 .pessoa-texto { display: flex; flex-direction: column; min-width: 0; }
 .pessoa-nome {
-  font-size: 13px; font-weight: 600; color: var(--s800); line-height: 1.35;
+  font-size: 13px; font-weight: 600; color: var(--txt-1); line-height: 1.35;
   display: flex; align-items: center; gap: .375rem;
 }
 .pessoa-email {
-  font-size: 11px; color: var(--s400); line-height: 1.35;
+  font-size: 11.5px; color: var(--txt-3); line-height: 1.35;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.pessoa-quando { font-size: 11px; color: var(--s400); }
+.pessoa-quando {
+  font-size: 11.5px; color: var(--txt-3);
+  font-variant-numeric: tabular-nums;
+}
 
 .selo-voce, .selo-gestor {
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .04em; padding: .1rem .375rem; border-radius: 4px;
+  font-size: 9px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .07em; padding: .1rem .375rem; border-radius: 4px;
 }
-.selo-voce   { background: var(--s100); color: var(--s500); }
-.selo-gestor { background: var(--roxo-suave); color: var(--roxo); }
+.selo-voce   { background: var(--bg-3); color: var(--txt-3); }
+.selo-gestor { background: var(--acento-fraco); color: var(--acento-alto); }
 
 .convite-linha { display: flex; align-items: center; gap: .5rem; }
 .convite-email {
   font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-  font-size: 12px; color: var(--s600);
+  font-size: 12px; color: var(--txt-2);
 }
 
 /* O toggle vem com o rótulo "Gestor" à direita; em 13px ele briga com o nome
    da pessoa, então volta ao peso de legenda. */
 [class*="st-key-linha_"] label[data-testid="stWidgetLabel"] p {
-  font-size: 11px !important; color: var(--s500);
+  font-size: 11px !important; color: var(--txt-3);
 }
 
 /* --------------------------------------------------------------- controles */
@@ -977,72 +1068,89 @@ table.tarefas tbody tr:hover .check {
    embrulha em dois <span> de tooltip e o `>` deixa de casar. */
 .stButton button, .stFormSubmitButton button {
   border-radius: 8px;
-  border: 1px solid var(--s200);
-  background: #fff;
-  color: var(--s600);
+  border: 1px solid var(--linha-forte);
+  background: var(--bg-2);
+  color: var(--txt-2);
   font-size: 12px; font-weight: 500;
   min-height: 40px;                      /* alvo de clique confortável */
-  box-shadow: var(--sombra-card);
-  transition-property: background-color, border-color, color, box-shadow, transform;
+  box-shadow: none;
+  transition-property: background-color, border-color, color;
   transition-duration: 150ms;
   transition-timing-function: ease-out;
 }
+.stButton button p, .stFormSubmitButton button p { color: inherit; }
 .stButton button:hover, .stFormSubmitButton button:hover {
-  border-color: var(--s300);
-  color: var(--s800);
-  background: var(--s50);
+  border-color: var(--acento-linha);
+  color: var(--txt-1);
+  background: var(--bg-3);
 }
 .stButton button:active, .stFormSubmitButton button:active {
-  transform: scale(.98);
+  transform: scale(.985);
+}
+.stButton button:disabled, .stFormSubmitButton button:disabled {
+  opacity: .45;
 }
 /* dentro de um st.form o `kind` vira "primaryFormSubmit", daí o ^= */
 .stButton button[kind^="primary"], .stFormSubmitButton button[kind^="primary"] {
-  background: var(--roxo); border-color: var(--roxo); color: #fff;
-  box-shadow: 0 1px 2px rgba(123, 104, 238, .3);
+  background: var(--acento); border-color: var(--acento); color: #fff;
+  font-weight: 600;
 }
 .stButton button[kind^="primary"] p, .stFormSubmitButton button[kind^="primary"] p {
   color: #fff;
 }
 .stButton button[kind^="primary"]:hover, .stFormSubmitButton button[kind^="primary"]:hover {
-  background: var(--roxo-escuro); border-color: var(--roxo-escuro); color: #fff;
+  background: var(--acento-alto); border-color: var(--acento-alto); color: #fff;
 }
 .stButton button:focus-visible, .stFormSubmitButton button:focus-visible {
-  outline: 2px solid var(--roxo); outline-offset: 2px;
+  outline: 2px solid var(--acento-alto); outline-offset: 2px;
 }
 
-/* inputs, selects */
+/* campos */
 [data-testid="stTextInput"] input,
 [data-testid="stTextArea"] textarea,
 [data-baseweb="select"] > div {
   border-radius: 8px !important;
-  border-color: var(--s200) !important;
-  background: #fff !important;
+  background: var(--bg-2) !important;
+  color: var(--txt-1) !important;
   font-size: 13px !important;
   min-height: 40px;
 }
 /* A borda visível dos campos mora no <div> que embrulha o <input>, não no
    <input> (que tem border-width 0). Nesta versão do Streamlit esse invólucro
-   nasce `1px solid #fff` — branco sobre o cartão branco, some. Pintar só o
-   `input` acima não resolvia; é o pai direto que precisa da cor. */
+   nasce com a cor do tema, que some contra a superfície. Pintar só o `input`
+   não resolvia; é o pai direto que precisa da cor. */
 [data-testid="stTextInput"] div:has(> input),
 [data-testid="stTextArea"] div:has(> textarea) {
-  border: 1px solid var(--s200) !important;
+  border: 1px solid var(--linha-forte) !important;
   border-radius: 8px !important;
-  background: #fff !important;
+  background: var(--bg-2) !important;
 }
 [data-testid="stTextInput"] div:has(> input:focus),
 [data-testid="stTextArea"] div:has(> textarea:focus) {
-  border-color: var(--roxo) !important;
-  box-shadow: 0 0 0 3px rgba(123, 104, 238, .15) !important;
+  border-color: var(--acento) !important;
+  box-shadow: 0 0 0 3px var(--acento-fraco) !important;
 }
 [data-testid="stTextInput"] input:focus,
 [data-testid="stTextArea"] textarea:focus {
-  border-color: var(--roxo) !important;
-  box-shadow: 0 0 0 3px rgba(123, 104, 238, .15) !important;
+  box-shadow: none !important;
 }
+[data-baseweb="select"] > div {
+  border-color: var(--linha-forte) !important;
+}
+[data-baseweb="select"] > div:hover { border-color: var(--acento-linha) !important; }
+input::placeholder, textarea::placeholder { color: var(--txt-3) !important; }
+
 label[data-testid="stWidgetLabel"] p {
-  font-size: 12px !important; font-weight: 500; color: var(--s500);
+  font-size: 11.5px !important; font-weight: 500; color: var(--txt-3);
 }
+
+/* Multiselect e date_input seguem o mesmo tom das outras superfícies. */
+[data-baseweb="tag"] {
+  background: var(--acento-fraco) !important;
+  color: var(--acento-alto) !important;
+  border-radius: 5px !important;
+}
+[data-testid="stDateInput"] input { color: var(--txt-1) !important; }
 
 /* Filtros do topo: largura fixa (150px). Um <select> esticado até o fim da
    coluna promete um texto longo que nunca vem — "Urgente", "Em Progresso" e um
@@ -1063,36 +1171,38 @@ label[data-testid="stWidgetLabel"] p {
   max-width: 100%;
 }
 
-/* Abas = a barra de views do protótipo: pílula roxa no ativo, sem
-   sublinhado. O tab-highlight do BaseWeb é justamente esse sublinhado,
-   então some com ele em vez de recolorir. */
+/* Abas = a barra de views: pílula no ativo, sem sublinhado. O tab-highlight
+   do BaseWeb é justamente esse sublinhado, então some com ele em vez de
+   recolorir. */
 [data-baseweb="tab-list"] {
-  gap: .25rem;
-  background: #fff;
-  border: 1px solid var(--s200);
+  gap: .125rem;
+  background: var(--bg-1);
+  border: 1px solid var(--linha);
   border-radius: 10px;
   padding: .25rem;
-  margin-bottom: .75rem;
+  margin-bottom: .875rem;
+  flex-wrap: wrap;
 }
 [data-baseweb="tab"] {
-  border-radius: 6px;
-  padding: .375rem .875rem !important;
+  border-radius: 7px;
+  padding: .4rem .875rem !important;
   font-size: 12px !important; font-weight: 500;
-  color: var(--s600);
+  color: var(--txt-3);
   transition-property: background-color, color;
   transition-duration: 150ms;
 }
-[data-baseweb="tab"]:hover { background: var(--s100); }
+[data-baseweb="tab"] p { color: inherit !important; font-size: 12px !important; }
+[data-baseweb="tab"]:hover { background: var(--bg-2); color: var(--txt-1); }
 [data-baseweb="tab"][aria-selected="true"] {
-  background: var(--roxo-suave); color: var(--roxo) !important;
+  background: var(--acento-fraco); color: var(--acento-alto) !important;
 }
-[data-baseweb="tab"][aria-selected="true"] p { color: var(--roxo) !important; }
+[data-baseweb="tab"][aria-selected="true"] p { color: var(--acento-alto) !important; }
 [data-baseweb="tab-highlight"], [data-baseweb="tab-border"] { display: none; }
 
 /* item de navegação fixo da sidebar (quando não há o que escolher) */
 .nav-fixo {
   padding: .5rem .625rem; border-radius: 8px;
-  background: var(--s100); color: var(--roxo);
+  background: var(--acento-fraco); color: var(--acento-alto);
   font-size: 12px; font-weight: 500;
 }
 
@@ -1100,22 +1210,46 @@ label[data-testid="stWidgetLabel"] p {
 [data-testid="stSidebar"] [role="radiogroup"] { gap: .125rem; }
 [data-testid="stSidebar"] [role="radiogroup"] label {
   padding: .5rem .625rem; border-radius: 8px; min-height: 40px;
-  font-size: 12px; font-weight: 500; color: var(--s600);
+  font-size: 12px; font-weight: 500; color: var(--txt-2);
   transition-property: background-color, color;
   transition-duration: 120ms;
 }
-[data-testid="stSidebar"] [role="radiogroup"] label:hover { background: var(--s100); }
+[data-testid="stSidebar"] [role="radiogroup"] label p { color: inherit !important; }
+[data-testid="stSidebar"] [role="radiogroup"] label:hover { background: var(--bg-2); }
 [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-  background: var(--s100); color: var(--roxo);
+  background: var(--acento-fraco); color: var(--acento-alto);
 }
 [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child { display: none; }
 
 [data-testid="stExpander"] {
-  border: none; background: transparent; box-shadow: none;
+  border: 1px solid var(--linha); background: var(--bg-1);
+  border-radius: 12px; box-shadow: none;
 }
-[data-testid="stExpander"] summary { padding: .25rem .5rem; font-size: 12px; }
+[data-testid="stExpander"] summary {
+  padding: .625rem .875rem; font-size: 12px; color: var(--txt-2);
+}
+[data-testid="stExpander"] summary:hover { color: var(--txt-1); }
 
-hr, [data-testid="stDivider"] { border-color: var(--s200); margin: .75rem 0; }
+hr, [data-testid="stDivider"] { border-color: var(--linha); margin: 1rem 0; }
+
+/* Avisos do Streamlit no tom da interface — o padrão vem com pastel claro. */
+[data-testid="stAlert"] {
+  background: var(--bg-2) !important;
+  border: 1px solid var(--linha-forte);
+  border-radius: 10px;
+  color: var(--txt-2);
+}
+[data-testid="stAlert"] p { color: var(--txt-2) !important; font-size: 13px; }
+[data-testid="stAlertContentInfo"]    { border-left: 2px solid var(--info); }
+[data-testid="stAlertContentSuccess"] { border-left: 2px solid var(--ok); }
+[data-testid="stAlertContentWarning"] { border-left: 2px solid var(--alerta); }
+[data-testid="stAlertContentError"]   { border-left: 2px solid var(--erro); }
+
+[data-testid="stToast"] {
+  background: var(--bg-3) !important;
+  border: 1px solid var(--linha-forte);
+  color: var(--txt-1);
+}
 
 /* A regra de "linha ativa" da árvore é injetada em tempo de execução (só ali
    se sabe qual espaço está aberto). O <style> não desenha nada, mas o
@@ -1136,40 +1270,86 @@ hr, [data-testid="stDivider"] { border-color: var(--s200); margin: .75rem 0; }
 
 /* ------------------------------------------------------------------- login */
 
-/* O cartão de 400x400. `min-height` e não `height`: a aba "Criar conta" tem
-   quatro campos e precisa crescer — travar a altura só cortaria o botão. */
+/* O login é a única tela sem sidebar, sem dados e sem pressa: é onde o app
+   pode se apresentar. O cartão ganha um brilho de acento no canto superior
+   esquerdo — um foco de luz, não um gradiente de ponta a ponta — e é o único
+   lugar do sistema com esse tratamento, justamente para não virar maneirismo.
+   `min-height` e não `height`: a aba "Criar conta" tem quatro campos e
+   precisa crescer — travar a altura só cortaria o botão. */
 .st-key-login_card {
+  position: relative;
   width: 400px; max-width: calc(100vw - 2rem);
-  min-height: 400px;
-  margin: 6vh auto 0;
-  background: #fff;
-  border: 1px solid var(--s200);
+  min-height: 408px;
+  margin: 8vh auto 0;
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(124, 108, 245, .16) 0%, rgba(124, 108, 245, 0) 58%),
+    var(--bg-1);
+  border: 1px solid var(--linha-forte);
   border-radius: 16px;
   padding: 1.75rem;
-  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, .06),
-              0 4px 6px -4px rgba(15, 23, 42, .05);
+  box-shadow: var(--realce-topo), 0 24px 60px -24px rgba(0, 0, 0, .9);
   gap: .25rem;
 }
-/* A faixa roxa no topo amarra o cartão à marca sem pintar o fundo inteiro. */
-.st-key-login_card::before {
-  content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
-  background: linear-gradient(to right, var(--roxo), var(--rosa));
-  border-radius: 16px 16px 0 0;
+.st-key-login_card [data-baseweb="tab-list"] {
+  margin: 1.125rem 0 .25rem;
+  background: transparent; border: none; padding: 0; gap: .25rem;
 }
-.st-key-login_card { position: relative; }
-.st-key-login_card [data-baseweb="tab-list"] { margin: .875rem 0 .25rem; }
 .st-key-login_card .stForm { border: none; padding: 0; }
 .st-key-login_card [data-testid="stElementContainer"] { margin-bottom: 0; }
 
-.login-marca {
-  display: flex; align-items: center; gap: .75rem;
+/* Campos do login em traço, não em caixa: com duas entradas e nada em volta,
+   a moldura completa pesa mais do que ajuda. O rótulo fica acima, minúsculo,
+   e o foco acende a linha de baixo.
+
+   O traço mora no `[data-baseweb="input"]`, e não no `div:has(> input)` que o
+   resto do arquivo usa: no campo de senha o botão do olho é irmão do input
+   dentro de um `base-input` mais estreito, então a linha da senha ficava 14px
+   mais curta que a do e-mail. O `input` é o invólucro externo dos dois casos e
+   tem sempre a largura da coluna. */
+.st-key-login_card [data-testid="stTextInput"] [data-baseweb="input"] {
+  border: none !important;
+  border-bottom: 1px solid var(--linha-forte) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  transition-property: border-color;
+  transition-duration: 160ms;
 }
-.login-marca .ws-logo { width: 40px; height: 40px; font-size: 16px; border-radius: 12px; }
-.login-titulo { font-size: 18px; font-weight: 700; color: var(--s900); margin: 0; line-height: 1.3; }
-.login-sub    { font-size: 12px; color: var(--s500); margin: 0; text-wrap: pretty; }
+.st-key-login_card [data-testid="stTextInput"] [data-baseweb="base-input"] {
+  border: none !important;
+  background: transparent !important;
+}
+.st-key-login_card [data-testid="stTextInput"] [data-baseweb="input"]:has(input:focus) {
+  border-bottom-color: var(--acento) !important;
+  box-shadow: none !important;
+}
+.st-key-login_card [data-testid="stTextInput"] input {
+  background: transparent !important;
+  padding-left: 0 !important;
+}
+.st-key-login_card label[data-testid="stWidgetLabel"] p {
+  font-size: 10.5px !important; font-weight: 600;
+  letter-spacing: .07em; text-transform: uppercase;
+  color: var(--txt-3);
+}
+/* O submit vira a pílula larga do topo da hierarquia da tela. */
+.st-key-login_card .stFormSubmitButton button {
+  border-radius: 9999px;
+  min-height: 44px;
+  margin-top: .875rem;
+  font-size: 12px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+
+.login-marca { display: flex; align-items: center; gap: .75rem; }
+.login-marca .ws-logo { width: 38px; height: 38px; font-size: 15px; border-radius: 11px; }
+.login-titulo {
+  font-size: 17px; font-weight: 600; color: var(--txt-1);
+  margin: 0; line-height: 1.3; letter-spacing: -.02em;
+}
+.login-sub { font-size: 12px; color: var(--txt-3); margin: 0; text-wrap: pretty; }
 /* O `margin-top: auto` vai no contêiner, não no <p>: quem é filho do flex do
    cartão é o contêiner de elemento, e só nele a margem automática empurra o
-   aviso para o rodapé. Na aba Entrar sobrava um palmo de branco embaixo do
+   aviso para o rodapé. Na aba Entrar sobrava um palmo de vazio embaixo do
    botão; agora o texto ocupa essa folga. */
 .st-key-login_card > [data-testid="stElementContainer"]:last-child {
   margin-top: auto;
@@ -1181,8 +1361,8 @@ hr, [data-testid="stDivider"] { border-color: var(--s200); margin: .75rem 0; }
   margin-bottom: 0 !important;
 }
 .login-rodape {
-  margin: 0; padding-top: 1rem;
-  font-size: 11px; color: var(--s400); text-align: center;
+  margin: 0; padding-top: 1.125rem;
+  font-size: 11px; color: var(--txt-3); text-align: center;
   text-wrap: pretty;
 }
 </style>

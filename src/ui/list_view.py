@@ -45,7 +45,7 @@ def _resumo_status(tarefas: list[dict]) -> str:
 
     itens = []
     for status in STATUS_ORDEM:
-        ponto, _, _ = CORES_STATUS.get(status, ("#94a3b8", "#e2e8f0", "#334155"))
+        ponto, _, _ = CORES_STATUS.get(status, ("#8d95a3", "", ""))
         itens.append(
             f'<span class="tabela-resumo-item">'
             f'<span class="ponto-mini" style="background:{ponto}"></span>'
@@ -62,13 +62,13 @@ def _rodape_tabela(tarefas: list[dict]) -> str:
 
     return limpar(f"""
     <div class="tabela-rodape">
-      <span>Exibindo <strong>{total}</strong> tarefa(s)</span>
+      <span><span class="numero-destaque">{total}</span> tarefa(s)</span>
       <span class="concluidas">
-        Concluídas: <span class="badge-destaque">{concluidas}/{total}</span>
+        <span>Concluídas <span class="numero-destaque">{concluidas}/{total}</span></span>
         <span class="barra-progresso">
           <span class="barra-progresso-fill" style="width:{pct}%"></span>
         </span>
-        <span class="badge-destaque">{pct}%</span>
+        <span class="numero-destaque">{pct}%</span>
       </span>
     </div>
     """)

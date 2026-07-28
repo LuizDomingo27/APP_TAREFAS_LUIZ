@@ -194,7 +194,7 @@ def dialog_criar(eu: Perfil | None = None) -> None:
             return
 
         fechar()
-        st.toast("Tarefa criada.", icon="✅")
+        st.toast("Tarefa criada.")
         st.rerun()
 
 
@@ -324,7 +324,7 @@ def dialog_detalhe(tarefa: dict, eu: Perfil) -> None:
             # Membro comum só pode alterar o status
             if campos["status"] != tarefa.get("status"):
                 tasks.mudar_status(tarefa["id"], campos["status"])
-                st.toast("Status alterado.", icon="✅")
+                st.toast("Status alterado.")
             fechar()
             st.rerun()
         else:
@@ -346,7 +346,7 @@ def dialog_detalhe(tarefa: dict, eu: Perfil) -> None:
                 else:
                     if set(etiquetas) != set(tarefa.get("tags") or []):
                         tasks.definir_tags(tarefa["id"], etiquetas)
-                    st.toast("Tarefa salva.", icon="✅")
+                    st.toast("Tarefa salva.")
                     fechar()
                     st.rerun()
 
@@ -367,7 +367,7 @@ def dialog_detalhe(tarefa: dict, eu: Perfil) -> None:
             ):
                 if tasks.excluir(tarefa["id"]):
                     fechar()
-                    st.toast("Tarefa excluída.", icon="🗑️")
+                    st.toast("Tarefa excluída.")
                     st.rerun()
                 else:
                     st.error(

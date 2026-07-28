@@ -17,23 +17,25 @@ from src.prazos import (
     para_data,
 )
 from src.repo import catalog, tasks
-from src.ui.componentes import avatar, data_longa, esc, icone, limpar
+from src.ui.componentes import avatar, data_longa, esc, limpar, pill_status
 
 logger = logging.getLogger(__name__)
 
-# Paleta de Cores do Sistema
+# Cores das séries dos gráficos. São as mesmas semânticas do :root de
+# src/ui/styles.py — status e prioridade têm de significar a mesma cor no
+# gráfico, na pílula da tabela e no ponto do Kanban.
 CORES_STATUS = {
-    "A Fazer": "#94a3b8",      # Slate 400
-    "Em Progresso": "#3b82f6",  # Blue 500
-    "Em Revisão": "#f59e0b",    # Amber 500
-    "Concluído": "#10b981",     # Emerald 500
+    "A Fazer": "#8d95a3",
+    "Em Progresso": "#5b93f5",
+    "Em Revisão": "#e0a34e",
+    "Concluído": "#3fb98a",
 }
 
 CORES_PRIO = {
-    "Urgente": "#ef4444",
-    "Alta": "#f59e0b",
-    "Normal": "#3b82f6",
-    "Baixa": "#64748b",
+    "Urgente": "#ef6461",
+    "Alta": "#e0a34e",
+    "Normal": "#5b93f5",
+    "Baixa": "#8d95a3",
 }
 
 
@@ -42,16 +44,38 @@ CORES_PRIO = {
 # do `else` e ficava indistinguível de "Sem data limite". Dicionário para que
 # uma classe nova apareça errada de um jeito óbvio, não invisível.
 ESTILO_BADGE_PRAZO = {
-    "urgente": "background:#fee2e2; color:#dc2626;",    # pendente e vencida
-    "alerta": "background:#ffedd5; color:#c2410c;",     # entregue com atraso
-    "alta": "background:#fef3c7; color:#d97706;",       # vence em breve
-    "concluido": "background:#d1fae5; color:#059669;",  # entregue no prazo
-    "normal": "background:#f1f5f9; color:#475569;",     # sem urgência
+    "urgente": "background:var(--chip-erro-bg); color:var(--chip-erro-tx);",
+    "alerta": "background:rgba(224,120,78,.16); color:#eda078;",
+    "alta": "background:var(--chip-alerta-bg); color:var(--chip-alerta-tx);",
+    "concluido": "background:var(--chip-ok-bg); color:var(--chip-ok-tx);",
+    "normal": "background:var(--chip-neutro-bg); color:var(--chip-neutro-tx);",
 }
 
 
 def _estilo_badge(badge_class: str) -> str:
     return ESTILO_BADGE_PRAZO.get(badge_class, ESTILO_BADGE_PRAZO["normal"])
+
+
+def _texto_atraso(quantidade: int) -> str:
+    """Legenda do KPI de atrasadas. Concorda no singular."""
+    if quantidade == 0:
+        return "Tudo no prazo"
+    if quantidade == 1:
+        return "1 exige atenção"
+    return f"{quantidade} exigem atenção"
+
+
+def _secao(titulo: str, nota: str | None = None) -> None:
+    """Título de seção do painel.
+
+    Um `###` do markdown herdaria a escala de cabeçalho do Streamlit, que é
+    de página e não de bloco — dentro de uma aba já titulada ele competia com
+    o cabeçalho do dashboard. A classe `.secao` é a régua menor do sistema.
+    """
+    legenda = f'<p class="secao-nota">{esc(nota)}</p>' if nota else ""
+    st.markdown(
+        f'<div class="secao">{esc(titulo)}</div>{legenda}', unsafe_allow_html=True
+    )
 
 
 def _render_echart_html(js_code: str, height: int = 400) -> None:
@@ -91,10 +115,10 @@ def _render_echart_html(js_code: str, height: int = 400) -> None:
 def render(eu: Perfil) -> None:
     """Renderiza a página completa do Dashboard de Gráficos."""
     st.markdown(
-        '<h2 style="font-weight:700; color:#0f172a; margin-bottom:0.25rem;">📊 Painel de Indicadores e Entregas</h2>'
-        '<p style="color:#64748b; font-size:13px; margin-bottom:1.25rem;">'
-        "Monitoramento visual de prazos, entregas por projetos e situação por integrante da equipe."
-        "</p>",
+        '<div class="pagina-topo">'
+        "<h1>Indicadores e entregas</h1>"
+        "<p>Prazos, entregas por projeto e situação por integrante da equipe.</p>"
+        "</div>",
         unsafe_allow_html=True,
     )
 
@@ -208,29 +232,29 @@ def render(eu: Perfil) -> None:
     )
 
     pct_concluido = f"{(concluidas/total*100):.0f}% do total" if total > 0 else "0%"
-    delta_atrasadas = f"⚠️ {atrasadas} atenção" if atrasadas > 0 else "No prazo"
+    delta_atrasadas = _texto_atraso(atrasadas)
     delta_atrasadas_cls = "kpi-delta--negative" if atrasadas > 0 else "kpi-delta--positive"
 
     kpi_html = limpar(f"""
 <div class="kpi-row">
-<div class="kpi-card" style="--kpi-accent: #6452db;">
-<div class="kpi-label">Projetos / Tarefas</div>
+<div class="kpi-card" style="--kpi-accent: #7c6cf5;">
+<div class="kpi-label">Tarefas</div>
 <div class="kpi-value">{total}</div>
 <div class="kpi-delta kpi-delta--positive">{em_andamento} em progresso</div>
 </div>
-<div class="kpi-card" style="--kpi-accent: #10b981;">
-<div class="kpi-label">Entregas Concluídas</div>
+<div class="kpi-card" style="--kpi-accent: #3fb98a;">
+<div class="kpi-label">Concluídas</div>
 <div class="kpi-value">{concluidas}</div>
 <div class="kpi-delta kpi-delta--positive">{pct_concluido}</div>
 </div>
-<div class="kpi-card" style="--kpi-accent: #ef4444;">
-<div class="kpi-label">Entregas Atrasadas</div>
+<div class="kpi-card" style="--kpi-accent: #ef6461;">
+<div class="kpi-label">Atrasadas</div>
 <div class="kpi-value">{atrasadas}</div>
 <div class="kpi-delta {delta_atrasadas_cls}">{esc(delta_atrasadas)}</div>
 </div>
-<div class="kpi-card" style="--kpi-accent: #3b82f6;">
-<div class="kpi-label">Média Dias em Andamento</div>
-<div class="kpi-value">{med_andamento} dias</div>
+<div class="kpi-card" style="--kpi-accent: #5b93f5;">
+<div class="kpi-label">Ciclo médio</div>
+<div class="kpi-value">{med_andamento}<span class="unidade">dias</span></div>
 <div class="kpi-delta">Tempo de ciclo</div>
 </div>
 </div>
@@ -239,26 +263,23 @@ def render(eu: Perfil) -> None:
 
     # ========================================================== ABAS DO DASHBOARD
     tab_gantt, tab_usuarios, tab_projetos, tab_aging = st.tabs([
-        "📅 Cronograma (Gantt)",
-        "👤 Situação por Usuário",
-        "📂 Entregas por Projeto",
-        "⏱️ Aging & Alertas de Prazo"
+        "Cronograma",
+        "Por integrante",
+        "Por projeto",
+        "Aging e alertas",
     ])
 
     # ---------------------------------------------------------- ABA GANTT (ECHARTS)
     with tab_gantt:
-        st.markdown("### 📅 Cronograma Geral de Prazos e Entregas (Gráfico de Gantt)")
-        st.markdown(
-            "<p style='color:#64748b; font-size:13px; margin-bottom:1rem;'>"
-            "Visão temporal contínua das tarefas do início (criação) até o prazo final no calendário."
-            "</p>",
-            unsafe_allow_html=True,
+        _secao(
+            "Cronograma de prazos",
+            "Cada barra vai da criação da tarefa até o prazo final.",
         )
 
         if not tarefas_filtradas:
             st.info("Nenhuma tarefa encontrada com os filtros selecionados.")
         else:
-            cor_por = st.radio("Colorir barras por:", ["Status", "Projeto"], horizontal=True, key="gantt_color_by")
+            cor_por = st.radio("Colorir por", ["Status", "Projeto"], horizontal=True, key="gantt_color_by")
             min_date = min((para_data(t.get("criado_em")) or hoje for t in tarefas_filtradas), default=hoje)
 
             y_cats = []
@@ -320,30 +341,30 @@ def render(eu: Perfil) -> None:
                 tooltip: {{
                     trigger: 'axis',
                     axisPointer: {{ type: 'shadow', shadowStyle: {{ color: 'rgba(123, 104, 238, 0.08)' }} }},
-                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                    borderColor: 'rgba(123, 104, 238, 0.4)',
+                    backgroundColor: 'rgba(18, 21, 28, 0.97)',
+                    borderColor: '#2f3542',
                     borderWidth: 1,
                     padding: [12, 16],
-                    textStyle: {{ color: '#ffffff', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                    extraCssText: 'box-shadow: 0 12px 30px rgba(0,0,0,0.35); backdrop-filter: blur(10px); border-radius: 12px;',
+                    textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
+                    extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
                     formatter: function(params) {{
                         var item = params[1] || params[0];
                         if (!item || item.dataIndex === undefined) return '';
                         var m = metaData[item.dataIndex];
                         if (!m) return '';
-                        return '<div style="font-weight:700;font-size:13px;color:#f8fafc;margin-bottom:6px;">' + m.codigo + ' · ' + m.titulo + '</div>' +
-                               '<div style="font-size:11px;color:#cbd5e1;line-height:1.6;">' +
-                               '📅 <b>Período:</b> ' + m.inicio + ' a ' + m.fim + ' (' + item.value + 'd)<br/>' +
-                               '👤 <b>Responsável:</b> ' + m.resp + '<br/>' +
-                               '📂 <b>Projeto:</b> ' + m.projeto + '<br/>' +
-                               '📌 <b>Status:</b> ' + m.status + '<br/>' +
-                               '⏱️ <b>Situação:</b> ' + m.prazo +
+                        return '<div style="font-weight:700;font-size:13px;color:#e7e9ee;margin-bottom:6px;">' + m.codigo + ' · ' + m.titulo + '</div>' +
+                               '<div style="font-size:11px;color:#99a0ad;line-height:1.6;">' +
+                               '<b>Período:</b> ' + m.inicio + ' a ' + m.fim + ' (' + item.value + 'd)<br/>' +
+                               '<b>Responsável:</b> ' + m.resp + '<br/>' +
+                               '<b>Projeto:</b> ' + m.projeto + '<br/>' +
+                               '<b>Status:</b> ' + m.status + '<br/>' +
+                               '<b>Situação:</b> ' + m.prazo +
                                '</div>';
                     }}
                 }},
                 grid: {{ left: '3%', right: '4%', bottom: '4%', top: '3%', containLabel: true }},
-                xAxis: {{ type: 'value', name: 'Dias', nameTextStyle: {{ color: '#334155', fontWeight: '600', fontSize: 12 }}, axisLabel: {{ color: '#0f172a', fontWeight: '600', fontSize: 12, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#94a3b8' }} }}, splitLine: {{ lineStyle: {{ color: '#e2e8f0' }} }} }},
-                yAxis: {{ type: 'category', data: yCats, axisLabel: {{ color: '#0f172a', fontWeight: '600', fontSize: 11, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#94a3b8' }} }} }},
+                xAxis: {{ type: 'value', name: 'Dias', nameTextStyle: {{ color: '#697080', fontWeight: '500', fontSize: 11 }}, axisLabel: {{ color: '#99a0ad', fontWeight: '500', fontSize: 11, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#2f3542' }} }}, splitLine: {{ lineStyle: {{ color: 'rgba(148,163,184,.09)' }} }} }},
+                yAxis: {{ type: 'category', data: yCats, axisLabel: {{ color: '#99a0ad', fontWeight: '500', fontSize: 11, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#2f3542' }} }} }},
                 series: [
                     {{ name: 'Offset', type: 'bar', stack: 'gantt', itemStyle: {{ color: 'transparent' }}, data: offsets }},
                     {{ name: 'Duração', type: 'bar', stack: 'gantt', data: durations }}
@@ -355,7 +376,7 @@ def render(eu: Perfil) -> None:
 
     # ---------------------------------------------------------- ABA 1: USUÁRIOS (ECHARTS)
     with tab_usuarios:
-        st.markdown("### 👤 Monitoramento de Carga e Entregas por Integrante")
+        _secao("Carga e entregas por integrante")
 
         if not tarefas_filtradas:
             st.info("Nenhuma tarefa encontrada com os filtros selecionados.")
@@ -401,45 +422,45 @@ def render(eu: Perfil) -> None:
                 tooltip: {{
                     trigger: 'axis',
                     axisPointer: {{ type: 'shadow', shadowStyle: {{ color: 'rgba(123, 104, 238, 0.08)' }} }},
-                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                    borderColor: 'rgba(123, 104, 238, 0.4)',
+                    backgroundColor: 'rgba(18, 21, 28, 0.97)',
+                    borderColor: '#2f3542',
                     borderWidth: 1,
                     padding: [12, 16],
-                    textStyle: {{ color: '#ffffff', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                    extraCssText: 'box-shadow: 0 12px 30px rgba(0,0,0,0.35); backdrop-filter: blur(10px); border-radius: 12px;',
+                    textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
+                    extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
                     formatter: function(params) {{
                         var total = 0;
-                        var res = '<div style="font-weight:700;font-size:13px;color:#f8fafc;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:4px;">👤 ' + params[0].name + '</div>';
+                        var res = '<div style="font-weight:700;font-size:13px;color:#e7e9ee;margin-bottom:8px;border-bottom:1px solid #2f3542;padding-bottom:4px;">' + params[0].name + '</div>';
                         params.forEach(function(item) {{
                             total += item.value;
                             if (item.value > 0) {{
-                                res += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:#cbd5e1;margin-bottom:3px;">' +
+                                res += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:#99a0ad;margin-bottom:3px;">' +
                                        '<span>' + item.marker + ' ' + item.seriesName + '</span>' +
                                        '<strong style="color:#fff;">' + item.value + '</strong></div>';
                             }}
                         }});
-                        res += '<div style="margin-top:6px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);font-size:11px;font-weight:700;color:#a78bfa;display:flex;justify-content:space-between;"><span>Total de Tarefas:</span><span>' + total + '</span></div>';
+                        res += '<div style="margin-top:6px;padding-top:4px;border-top:1px solid #2f3542;font-size:11px;font-weight:700;color:#9b8dff;display:flex;justify-content:space-between;"><span>Total de Tarefas:</span><span>' + total + '</span></div>';
                         return res;
                     }}
                 }},
                 legend: {{
                     top: 0,
-                    textStyle: {{ color: '#475569', fontSize: 12, fontFamily: 'Inter, sans-serif' }}
+                    textStyle: {{ color: '#99a0ad', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
                 }},
                 grid: {{ left: '3%', right: '4%', bottom: '3%', top: '40px', containLabel: true }},
-                xAxis: {{ type: 'category', data: xCats, axisLabel: {{ color: '#0f172a', fontWeight: '600', fontSize: 12, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#94a3b8' }} }} }},
-                yAxis: {{ type: 'value', axisLabel: {{ color: '#0f172a', fontWeight: '600', fontSize: 12, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#94a3b8' }} }}, splitLine: {{ lineStyle: {{ color: '#e2e8f0' }} }} }},
+                xAxis: {{ type: 'category', data: xCats, axisLabel: {{ color: '#99a0ad', fontWeight: '500', fontSize: 11, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#2f3542' }} }} }},
+                yAxis: {{ type: 'value', axisLabel: {{ color: '#99a0ad', fontWeight: '500', fontSize: 11, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#2f3542' }} }}, splitLine: {{ lineStyle: {{ color: 'rgba(148,163,184,.09)' }} }} }},
                 series: seriesData
             }};
             """
             _render_echart_html(js_user, height=380)
 
             # Detalhamento por Usuário Selecionado
-            st.markdown("---")
-            st.markdown("### 🔍 Detalhamento das Entregas por Usuário Específico")
+            st.divider()
+            _secao("Detalhamento por integrante")
 
             users_disponiveis = list(dados_user.keys())
-            user_escolhido = st.selectbox("Selecione o integrante para examinar seus prazos:", users_disponiveis, key="dash_user_detail_select")
+            user_escolhido = st.selectbox("Integrante", users_disponiveis, key="dash_user_detail_select")
 
             if user_escolhido:
                 sub_t = [t for t in tarefas_filtradas if t["responsavel_nome"] == user_escolhido]
@@ -448,26 +469,26 @@ def render(eu: Perfil) -> None:
 
                 u_atrasadas = info_u["atrasadas"]
                 u_delta_cls = "kpi-delta--negative" if u_atrasadas > 0 else "kpi-delta--positive"
-                u_delta_txt = f"⚠️ {u_atrasadas} atenção" if u_atrasadas > 0 else "No prazo"
+                u_delta_txt = _texto_atraso(u_atrasadas)
 
                 user_kpi_html = limpar(f"""
 <div class="kpi-row">
-<div class="kpi-card" style="--kpi-accent: #6452db;">
-<div class="kpi-label">Total no Usuário</div>
+<div class="kpi-card" style="--kpi-accent: #7c6cf5;">
+<div class="kpi-label">Total atribuído</div>
 <div class="kpi-value">{info_u['count']}</div>
 </div>
-<div class="kpi-card" style="--kpi-accent: #3b82f6;">
+<div class="kpi-card" style="--kpi-accent: #5b93f5;">
 <div class="kpi-label">Em Progresso</div>
 <div class="kpi-value">{info_u.get(Status.EM_PROGRESSO.value, 0)}</div>
 </div>
-<div class="kpi-card" style="--kpi-accent: #ef4444;">
+<div class="kpi-card" style="--kpi-accent: #ef6461;">
 <div class="kpi-label">Atrasadas</div>
 <div class="kpi-value">{u_atrasadas}</div>
 <div class="kpi-delta {u_delta_cls}">{esc(u_delta_txt)}</div>
 </div>
-<div class="kpi-card" style="--kpi-accent: #10b981;">
-<div class="kpi-label">Média em Andamento</div>
-<div class="kpi-value">{media_u} dias</div>
+<div class="kpi-card" style="--kpi-accent: #3fb98a;">
+<div class="kpi-label">Ciclo médio</div>
+<div class="kpi-value">{media_u}<span class="unidade">dias</span></div>
 </div>
 </div>
                 """)
@@ -485,14 +506,14 @@ def render(eu: Perfil) -> None:
                     entrega_txt = data_longa(entregue_em.isoformat()) if entregue_em else "—"
                     rows_html.append(f"""
                     <tr>
-                        <td style="font-weight:600; color:#0f172a;">{esc(item.get('codigo') or '-')}</td>
-                        <td>{esc(item.get('titulo', ''))}</td>
-                        <td><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:{esc(item['space_cor'])}; margin-right:4px;"></span>{esc(item['space_nome'])}</td>
-                        <td><span style="font-size:11px; padding:2px 8px; border-radius:12px; background:#f1f5f9; font-weight:600;">{esc(item['status'])}</span></td>
-                        <td><strong>{item['dias_andamento']} dias</strong></td>
-                        <td>{data_longa(item.get('data_limite'))}</td>
-                        <td>{entrega_txt}</td>
-                        <td><span style="font-size:11px; padding:2px 8px; border-radius:4px; font-weight:600; {badge_style}">{esc(item['status_prazo'])}</span></td>
+                        <td><span class="card-codigo">{esc(item.get('codigo') or '-')}</span></td>
+                        <td class="nome">{esc(item.get('titulo', ''))}</td>
+                        <td><span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:{esc(item['space_cor'])}; margin-right:6px;"></span>{esc(item['space_nome'])}</td>
+                        <td>{pill_status(item['status'])}</td>
+                        <td class="data">{item['dias_andamento']} d</td>
+                        <td class="data">{data_longa(item.get('data_limite'))}</td>
+                        <td class="data">{entrega_txt}</td>
+                        <td><span class="badge" style="{badge_style}">{esc(item['status_prazo'])}</span></td>
                     </tr>
                     """)
 
@@ -521,7 +542,7 @@ def render(eu: Perfil) -> None:
 
     # ---------------------------------------------------------- ABA 2: PROJETOS / ESPAÇOS (ECHARTS)
     with tab_projetos:
-        st.markdown("### 📂 Monitoramento da Saúde das Entregas por Projeto")
+        _secao("Saúde das entregas por projeto")
 
         if not tarefas_filtradas:
             st.info("Nenhuma tarefa encontrada com os filtros selecionados.")
@@ -562,38 +583,38 @@ def render(eu: Perfil) -> None:
                 var seriesData = {json.dumps(series_esp, ensure_ascii=False)};
 
                 var option = {{
-                    title: {{ text: 'Status por Projeto', textStyle: {{ fontSize: 13, fontWeight: 'bold', color: '#1e293b' }} }},
+                    title: {{ text: 'Status por Projeto', textStyle: {{ fontSize: 13, fontWeight: '600', color: '#e7e9ee' }} }},
                     tooltip: {{
                         trigger: 'axis',
                         axisPointer: {{ type: 'shadow', shadowStyle: {{ color: 'rgba(123, 104, 238, 0.08)' }} }},
-                        backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                        borderColor: 'rgba(123, 104, 238, 0.4)',
+                        backgroundColor: 'rgba(18, 21, 28, 0.97)',
+                        borderColor: '#2f3542',
                         borderWidth: 1,
                         padding: [12, 16],
-                        textStyle: {{ color: '#ffffff', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                        extraCssText: 'box-shadow: 0 12px 30px rgba(0,0,0,0.35); backdrop-filter: blur(10px); border-radius: 12px;',
+                        textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
+                        extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
                         formatter: function(params) {{
                             var total = 0;
-                            var res = '<div style="font-weight:700;font-size:13px;color:#f8fafc;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:4px;">📂 ' + params[0].name + '</div>';
+                            var res = '<div style="font-weight:700;font-size:13px;color:#e7e9ee;margin-bottom:8px;border-bottom:1px solid #2f3542;padding-bottom:4px;">' + params[0].name + '</div>';
                             params.forEach(function(item) {{
                                 total += item.value;
                                 if (item.value > 0) {{
-                                    res += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:#cbd5e1;margin-bottom:3px;">' +
+                                    res += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:#99a0ad;margin-bottom:3px;">' +
                                            '<span>' + item.marker + ' ' + item.seriesName + '</span>' +
                                            '<strong style="color:#fff;">' + item.value + '</strong></div>';
                                 }}
                             }});
-                            res += '<div style="margin-top:6px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);font-size:11px;font-weight:700;color:#a78bfa;display:flex;justify-content:space-between;"><span>Total do Projeto:</span><span>' + total + '</span></div>';
+                            res += '<div style="margin-top:6px;padding-top:4px;border-top:1px solid #2f3542;font-size:11px;font-weight:700;color:#9b8dff;display:flex;justify-content:space-between;"><span>Total do Projeto:</span><span>' + total + '</span></div>';
                             return res;
                         }}
                     }},
                     legend: {{
                         top: 25,
-                        textStyle: {{ color: '#475569', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
+                        textStyle: {{ color: '#99a0ad', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
                     }},
                     grid: {{ left: '3%', right: '4%', bottom: '3%', top: '65px', containLabel: true }},
-                    xAxis: {{ type: 'category', data: xCats, axisLabel: {{ color: '#0f172a', fontWeight: '600', fontSize: 12, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#94a3b8' }} }} }},
-                    yAxis: {{ type: 'value', axisLabel: {{ color: '#0f172a', fontWeight: '600', fontSize: 12, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#94a3b8' }} }}, splitLine: {{ lineStyle: {{ color: '#e2e8f0' }} }} }},
+                    xAxis: {{ type: 'category', data: xCats, axisLabel: {{ color: '#99a0ad', fontWeight: '500', fontSize: 11, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#2f3542' }} }} }},
+                    yAxis: {{ type: 'value', axisLabel: {{ color: '#99a0ad', fontWeight: '500', fontSize: 11, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#2f3542' }} }}, splitLine: {{ lineStyle: {{ color: 'rgba(148,163,184,.09)' }} }} }},
                     series: seriesData
                 }};
                 """
@@ -623,25 +644,25 @@ def render(eu: Perfil) -> None:
                         text: 'Prioridades',
                         left: 'center',
                         top: 0,
-                        textStyle: {{ fontSize: 13, fontWeight: 'bold', color: '#1e293b' }}
+                        textStyle: {{ fontSize: 13, fontWeight: '600', color: '#e7e9ee' }}
                     }},
                     tooltip: {{
                         trigger: 'item',
-                        backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                        borderColor: 'rgba(123, 104, 238, 0.4)',
+                        backgroundColor: 'rgba(18, 21, 28, 0.97)',
+                        borderColor: '#2f3542',
                         borderWidth: 1,
                         padding: [12, 16],
-                        textStyle: {{ color: '#ffffff', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                        extraCssText: 'box-shadow: 0 12px 30px rgba(0,0,0,0.35); backdrop-filter: blur(10px); border-radius: 12px;',
+                        textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
+                        extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
                         formatter: function(params) {{
-                            return '<div style="font-weight:700;font-size:12px;color:#f8fafc;">' + params.marker + ' ' + params.name + '</div>' +
-                                   '<div style="font-size:11px;color:#cbd5e1;margin-top:4px;">Quantidade: <strong style="color:#a78bfa;">' + params.value + '</strong> (' + params.percent + '%)</div>';
+                            return '<div style="font-weight:700;font-size:12px;color:#e7e9ee;">' + params.marker + ' ' + params.name + '</div>' +
+                                   '<div style="font-size:11px;color:#99a0ad;margin-top:4px;">Quantidade: <strong style="color:#9b8dff;">' + params.value + '</strong> (' + params.percent + '%)</div>';
                         }}
                     }},
                     legend: {{
                         bottom: '0%',
                         left: 'center',
-                        textStyle: {{ color: '#475569', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
+                        textStyle: {{ color: '#99a0ad', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
                     }},
                     series: [{{
                         type: 'pie',
@@ -650,7 +671,7 @@ def render(eu: Perfil) -> None:
                         avoidLabelOverlap: false,
                         itemStyle: {{
                             borderRadius: 8,
-                            borderColor: '#ffffff',
+                            borderColor: '#12151c',
                             borderWidth: 2
                         }},
                         label: {{
@@ -658,8 +679,8 @@ def render(eu: Perfil) -> None:
                             position: 'center',
                             formatter: function() {{ return 'Total\\n' + totalTasks; }},
                             fontSize: 14,
-                            fontWeight: 'bold',
-                            color: '#334155'
+                            fontWeight: '600',
+                            color: '#e7e9ee'
                         }},
                         data: pieData
                     }}]
@@ -668,7 +689,7 @@ def render(eu: Perfil) -> None:
                 _render_echart_html(js_pie, height=360)
 
             # Tabela Resumo da Saúde dos Projetos
-            st.markdown("### 📋 Resumo Consolidado por Projeto")
+            _secao("Resumo consolidado")
 
             p_rows = []
             for esp_nome, e_info in dados_espaco.items():
@@ -680,18 +701,18 @@ def render(eu: Perfil) -> None:
 
                 p_rows.append(f"""
                 <tr>
-                    <td style="font-weight:600;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:{esc(e_info['cor'])}; margin-right:6px;"></span>{esc(esp_nome)}</td>
-                    <td><strong>{tot}</strong></td>
-                    <td>{a_faz}</td>
-                    <td>{em_prog}</td>
-                    <td><strong style="color:#10b981;">{conc}</strong></td>
+                    <td class="nome"><span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:{esc(e_info['cor'])}; margin-right:8px;"></span>{esc(esp_nome)}</td>
+                    <td class="data">{tot}</td>
+                    <td class="data">{a_faz}</td>
+                    <td class="data">{em_prog}</td>
+                    <td class="data" style="color:var(--chip-ok-tx);">{conc}</td>
                     <td>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <div style="flex:1; background:#e2e8f0; border-radius:4px; height:8px; overflow:hidden;">
-                                <div style="width:{pct}%; background:#10b981; height:100%;"></div>
-                            </div>
-                            <span style="font-size:11px; font-weight:600; min-width:36px;">{pct}%</span>
-                        </div>
+                        <span class="progresso">
+                            <span class="progresso-trilho">
+                                <span class="progresso-fill" style="width:{pct}%"></span>
+                            </span>
+                            <span class="progresso-num">{pct}%</span>
+                        </span>
                     </td>
                 </tr>
                 """)
@@ -719,7 +740,7 @@ def render(eu: Perfil) -> None:
 
     # ---------------------------------------------------------- ABA 3: AGING & ALERTAS (ECHARTS)
     with tab_aging:
-        st.markdown("### ⏱️ Tempo em Andamento (Aging) & Alerta de Prazos Próximos")
+        _secao("Tempo em andamento e prazos próximos")
 
         if not tarefas_filtradas:
             st.info("Nenhuma tarefa encontrada com os filtros selecionados.")
@@ -757,29 +778,29 @@ def render(eu: Perfil) -> None:
                 var barData = {json.dumps(aging_bar_data, ensure_ascii=False)};
 
                 var option = {{
-                    title: {{ text: 'Aging de Tarefas Pendentes', textStyle: {{ fontSize: 13, fontWeight: 'bold', color: '#1e293b' }} }},
+                    title: {{ text: 'Aging de Tarefas Pendentes', textStyle: {{ fontSize: 13, fontWeight: '600', color: '#e7e9ee' }} }},
                     tooltip: {{
                         trigger: 'axis',
                         axisPointer: {{ type: 'shadow', shadowStyle: {{ color: 'rgba(123, 104, 238, 0.08)' }} }},
-                        backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                        borderColor: 'rgba(123, 104, 238, 0.4)',
+                        backgroundColor: 'rgba(18, 21, 28, 0.97)',
+                        borderColor: '#2f3542',
                         borderWidth: 1,
                         padding: [12, 16],
-                        textStyle: {{ color: '#ffffff', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                        extraCssText: 'box-shadow: 0 12px 30px rgba(0,0,0,0.35); backdrop-filter: blur(10px); border-radius: 12px;',
+                        textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
+                        extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
                         formatter: function(params) {{
-                            return '<div style="font-weight:700;color:#f8fafc;font-size:12px;">⏱️ ' + params[0].name + '</div>' +
-                                   '<div style="color:#cbd5e1;font-size:11px;margin-top:4px;">Tarefas pendentes: <strong style="color:#a78bfa;">' + params[0].value + '</strong></div>';
+                            return '<div style="font-weight:700;color:#e7e9ee;font-size:12px;">' + params[0].name + '</div>' +
+                                   '<div style="color:#99a0ad;font-size:11px;margin-top:4px;">Tarefas pendentes: <strong style="color:#9b8dff;">' + params[0].value + '</strong></div>';
                         }}
                     }},
                     grid: {{ left: '3%', right: '4%', bottom: '3%', top: '45px', containLabel: true }},
-                    xAxis: {{ type: 'category', data: xCats, axisLabel: {{ color: '#0f172a', fontWeight: '600', fontSize: 12, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#94a3b8' }} }} }},
-                    yAxis: {{ type: 'value', axisLabel: {{ color: '#0f172a', fontWeight: '600', fontSize: 12, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#94a3b8' }} }}, splitLine: {{ lineStyle: {{ color: '#e2e8f0' }} }} }},
+                    xAxis: {{ type: 'category', data: xCats, axisLabel: {{ color: '#99a0ad', fontWeight: '500', fontSize: 11, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#2f3542' }} }} }},
+                    yAxis: {{ type: 'value', axisLabel: {{ color: '#99a0ad', fontWeight: '500', fontSize: 11, fontFamily: 'Inter, sans-serif' }}, axisLine: {{ show: true, lineStyle: {{ color: '#2f3542' }} }}, splitLine: {{ lineStyle: {{ color: 'rgba(148,163,184,.09)' }} }} }},
                     series: [{{
                         type: 'bar',
                         barWidth: '45%',
                         data: barData,
-                        label: {{ show: true, position: 'top', color: '#334155', fontWeight: 'bold', fontSize: 12 }}
+                        label: {{ show: true, position: 'top', color: '#99a0ad', fontWeight: '600', fontSize: 11 }}
                     }}]
                 }};
                 """
@@ -788,36 +809,52 @@ def render(eu: Perfil) -> None:
             with col_a2:
                 # Tarefas mais antigas em andamento
                 antigas = sorted(em_aberto, key=lambda x: x["dias_andamento"], reverse=True)[:5]
-                st.markdown("**Top 5 Tarefas em Andamento há mais Tempo:**")
+                _secao("Há mais tempo em andamento")
                 if not antigas:
                     st.success("Não há tarefas pendentes!")
                 else:
-                    for a in antigas:
-                        st.markdown(
-                            f"- **{esc(a.get('codigo') or '')} {esc(a['titulo'])}** "
-                            f"({esc(a['responsavel_nome'])}) — "
-                            f"<span style='color:#ef4444; font-weight:600;'>{a['dias_andamento']} dias em andamento</span>",
-                            unsafe_allow_html=True,
-                        )
+                    linhas_antigas = "".join(
+                        f"<tr>"
+                        f'<td><span class="card-codigo">{esc(a.get("codigo") or "-")}</span></td>'
+                        f'<td class="nome">{esc(a["titulo"])}</td>'
+                        f'<td><span class="responsavel-cell">{avatar(a["responsavel_nome"], mini=True)}'
+                        f'{esc(a["responsavel_nome"])}</span></td>'
+                        f'<td class="data" style="color:var(--chip-erro-tx);">{a["dias_andamento"]} d</td>'
+                        f"</tr>"
+                        for a in antigas
+                    )
+                    st.markdown(
+                        limpar(f"""
+                        <div class="tabela-wrap">
+                          <table class="tarefas">
+                            <thead><tr>
+                              <th>Código</th><th>Tarefa</th><th>Responsável</th><th>Andamento</th>
+                            </tr></thead>
+                            <tbody>{linhas_antigas}</tbody>
+                          </table>
+                        </div>
+                        """),
+                        unsafe_allow_html=True,
+                    )
 
-            st.markdown("---")
-            st.markdown("### 🚨 Painel de Alerta de Vencimento e Atrasos")
+            st.divider()
+            _secao("Vencimentos e atrasos")
 
             criticas = [t for t in tarefas_filtradas if esta_critica(t)]
 
             if not criticas:
-                st.success("🎉 Nenhuma tarefa atrasada ou prestes a vencer nos próximos 3 dias!")
+                st.success("Nenhuma tarefa atrasada ou vencendo nos próximos 3 dias.")
             else:
                 crit_rows = []
                 for c in criticas:
                     badge_c = _estilo_badge(c["badge_class"])
                     crit_rows.append(f"""
                     <tr>
-                        <td style="font-weight:600;">{esc(c.get('codigo') or '-')}</td>
-                        <td>{esc(c['titulo'])}</td>
-                        <td>{esc(c['responsavel_nome'])}</td>
+                        <td><span class="card-codigo">{esc(c.get('codigo') or '-')}</span></td>
+                        <td class="nome">{esc(c['titulo'])}</td>
+                        <td><span class="responsavel-cell">{avatar(c['responsavel_nome'], mini=True)}{esc(c['responsavel_nome'])}</span></td>
                         <td>{esc(c['space_nome'])}</td>
-                        <td><span style="font-size:11px; padding:2px 8px; border-radius:4px; font-weight:600; {badge_c}">{esc(c['status_prazo'])}</span></td>
+                        <td><span class="badge" style="{badge_c}">{esc(c['status_prazo'])}</span></td>
                     </tr>
                     """)
 

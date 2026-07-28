@@ -10,12 +10,15 @@ from __future__ import annotations
 from datetime import date, datetime
 from html import escape
 
-# Cores dos pontos das colunas do Kanban — mesmas do protótipo.
+# Cores de status — (ponto, fundo do contador, texto do contador). Espelham
+# os tokens --chip-*-bg / --chip-*-tx de src/ui/styles.py: em tela escura o
+# pastel chapado do tema claro sumia, então o fundo é translúcido e quem lê é
+# o texto saturado. Mudou lá, muda aqui.
 CORES_STATUS = {
-    "A Fazer": ("#94a3b8", "#e2e8f0", "#334155"),      # ponto, fundo, texto
-    "Em Progresso": ("#3b82f6", "#dbeafe", "#1d4ed8"),
-    "Em Revisão": ("#f59e0b", "#fef3c7", "#b45309"),
-    "Concluído": ("#10b981", "#d1fae5", "#047857"),
+    "A Fazer": ("#8d95a3", "rgba(141,149,163,.14)", "#b2b9c5"),
+    "Em Progresso": ("#5b93f5", "rgba(91,147,245,.15)", "#8ab4fb"),
+    "Em Revisão": ("#e0a34e", "rgba(224,163,78,.15)", "#e9bb72"),
+    "Concluído": ("#3fb98a", "rgba(63,185,138,.15)", "#63d2a6"),
 }
 
 STATUS_ORDEM = ["A Fazer", "Em Progresso", "Em Revisão", "Concluído"]
@@ -135,11 +138,8 @@ def pill_status(status: str) -> str:
         "Em Revisão": "emrevisao",
         "Concluído": "concluido",
     }
+    # Sem estilo inline: a cor vem do CSS pelo `data-status`. Assim a pílula
+    # acompanha o tema em vez de carregar uma cópia da paleta.
     slug = _slug.get(status, "afazer")
-    _, fundo, texto = CORES_STATUS.get(status, ("#94a3b8", "#e2e8f0", "#334155"))
-    return (
-        f'<span class="pill-status" data-status="{slug}" '
-        f'style="background:{fundo};color:{texto}">'
-        f"{esc(status)}</span>"
-    )
+    return f'<span class="pill-status" data-status="{slug}">{esc(status)}</span>'
 

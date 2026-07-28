@@ -100,7 +100,7 @@ def _secao_pendentes() -> None:
                     use_container_width=True,
                 ):
                     if catalog.liberar(p.id):
-                        st.toast(f"{p.nome} liberado.", icon="✅")
+                        st.toast(f"{p.nome} liberado.")
                         st.rerun()
                     else:
                         _falhou()
@@ -109,7 +109,7 @@ def _secao_pendentes() -> None:
                     "Recusar", key=f"rec_{p.id}", use_container_width=True
                 ):
                     if catalog.recusar(p.id):
-                        st.toast(f"{p.nome} recusado.", icon="🚫")
+                        st.toast(f"{p.nome} recusado.")
                         st.rerun()
                     else:
                         _falhou()
@@ -190,7 +190,7 @@ def _secao_convites() -> None:
                 if not email.strip():
                     st.warning("Informe o e-mail.")
                 elif catalog.convidar(email, nome, gestor):
-                    st.toast(f"{email.strip().lower()} pré-autorizado.", icon="✉️")
+                    st.toast(f"{email.strip().lower()} pré-autorizado.")
                     st.rerun()
                 else:
                     _falhou()
@@ -231,7 +231,7 @@ def _secao_recusados() -> None:
                     "Reativar", key=f"reat_{p.id}", use_container_width=True
                 ):
                     if catalog.liberar(p.id):
-                        st.toast(f"{p.nome} reativado.", icon="✅")
+                        st.toast(f"{p.nome} reativado.")
                         st.rerun()
                     else:
                         _falhou()
@@ -245,15 +245,20 @@ def render(eu: Perfil) -> None:
         st.warning("Esta tela é só para gestores.")
         return
 
-    st.markdown(
-        limpar("""
-        <div class="topbar">
-          <div class="migalhas"><span class="atual">Equipe</span></div>
-        </div>
-        """),
-        unsafe_allow_html=True,
-    )
-    _secao_pendentes()
-    _secao_equipe(eu)
-    _secao_convites()
-    _secao_recusados()
+    # Tudo dentro de um container com `key`: é ele que o CSS estreita para
+    # 80% (`.st-key-pagina_usuarios`). Esta tela é formulário de administração,
+    # não painel de dados — na largura toda cada linha virava uma travessia de
+    # ponta a ponta com o avatar de um lado e o botão do outro.
+    with st.container(key="pagina_usuarios"):
+        st.markdown(
+            limpar("""
+            <div class="topbar">
+              <div class="migalhas"><span class="atual">Equipe</span></div>
+            </div>
+            """),
+            unsafe_allow_html=True,
+        )
+        _secao_pendentes()
+        _secao_equipe(eu)
+        _secao_convites()
+        _secao_recusados()

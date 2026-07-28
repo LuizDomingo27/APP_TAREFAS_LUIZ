@@ -103,7 +103,7 @@ def _dialog_criar_espaco() -> None:
             return
 
         _fechar()
-        st.toast("Espaço criado.", icon="✅")
+        st.toast("Espaço criado.")
         st.rerun()
 
 
@@ -148,7 +148,7 @@ def _dialog_criar_lista() -> None:
             return
 
         _fechar()
-        st.toast("Lista criada.", icon="✅")
+        st.toast("Lista criada.")
         st.rerun()
 
 
@@ -212,7 +212,7 @@ def _dialog_excluir_espaco() -> None:
             st.session_state.pop("escopo_id", None)
 
         _fechar()
-        st.toast("Espaço excluído.", icon="🗑️")
+        st.toast("Espaço excluído.")
         st.rerun()
 
 

@@ -30,7 +30,7 @@ def _card(tarefa: dict, nome_responsavel: str | None) -> str:
         )
 
     venceu = atrasada(tarefa.get("data_limite"), tarefa["status"])
-    cor_data = "color:#dc2626;font-weight:600" if venceu else ""
+    cor_data = "color:var(--chip-erro-tx);font-weight:600" if venceu else ""
 
     # Sem <div class="card"> em volta: quem desenha a moldura branca é o
     # próprio container do Streamlit (`.st-key-card_…`), para que o botão de
@@ -74,7 +74,7 @@ def _seletor_status(tarefa: dict) -> None:
         )
     if novo != atual:
         tasks.mudar_status(tarefa["id"], novo)
-        st.toast(f"Movida para {novo}.", icon="↔️")
+        st.toast(f"Movida para {novo}.")
         st.rerun()
 
 

@@ -103,11 +103,11 @@ def _acoes_gestor(tem_espacos: bool, espaco_sel: dict | None) -> None:
     no layout dela (o ponto colorido é posicionado por CSS sobre o botão)
     arriscaria quebrar o visual; aqui embaixo o gatilho é seguro e claro.
     """
-    if st.button("＋  Novo espaço", key="btn_novo_espaco", use_container_width=True):
+    if st.button(":material/add:  Novo espaço", key="btn_novo_espaco", use_container_width=True):
         espacos_ui.abrir_criar_espaco()
         st.rerun()
     if st.button(
-        "＋  Nova lista", key="btn_nova_lista",
+        ":material/add:  Nova lista", key="btn_nova_lista",
         use_container_width=True, disabled=not tem_espacos,
     ):
         espacos_ui.abrir_criar_lista()
@@ -231,7 +231,7 @@ def render(eu: Perfil) -> str:
         _cabecalho()
 
         if eu.pode_gerenciar:
-            if st.button("＋  Criar Tarefa", type="primary", use_container_width=True,
+            if st.button(":material/add:  Criar tarefa", type="primary", use_container_width=True,
                          key="btn_criar"):
                 task_detail.abrir_criacao()
                 st.rerun()
