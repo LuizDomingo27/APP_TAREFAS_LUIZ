@@ -52,6 +52,48 @@ ESTILO_BADGE_PRAZO = {
 }
 
 
+# Acabamento comum dos tooltips dos gráficos. É o par, dentro do <iframe> do
+# ECharts, do vidro fosco que `src/ui/styles.py` dá às dicas do app: o canvas
+# não enxerga o CSS da página, então a mesma decisão precisa ser repetida aqui
+# em forma de opção. Fica numa constante para que os cinco gráficos não
+# possam divergir — antes eram cinco cópias das mesmas seis linhas.
+#
+# Entra por interpolação em f-strings de JS, onde as chaves literais são
+# escritas `{{`: por isso as chaves daqui são simples.
+_TOOLTIP_VIDRO = (
+    "backgroundColor: 'rgba(23, 27, 35, 0.84)',",
+    "borderColor: 'rgba(255, 255, 255, 0.08)',",
+    "borderWidth: 1,",
+    "padding: [13, 17],",
+    "textStyle: { color: '#e7e9ee', fontSize: 14, fontFamily: 'Inter, sans-serif' },",
+    (
+        "extraCssText: 'backdrop-filter: blur(16px) saturate(150%);"
+        " -webkit-backdrop-filter: blur(16px) saturate(150%);"
+        " box-shadow: inset 0 1px 0 rgba(255,255,255,.04),"
+        " 0 18px 44px -14px rgba(0,0,0,.8); border-radius: 12px;',"
+    ),
+)
+
+
+def _tooltip_vidro(recuo: int) -> str:
+    """As propriedades do bloco acima, alinhadas a `recuo` espaços.
+
+    O recuo é do JS gerado, não do Python: os gráficos ficam em níveis
+    diferentes de aninhamento e sem ele o `option` sai com as linhas soltas.
+    """
+    return ("\n" + " " * recuo).join(_TOOLTIP_VIDRO)
+
+# Escala de texto dentro do tooltip. Duas vozes só: o que identifica a barra
+# e o que a descreve. Ambas subiram — 15/13 no lugar de 13/11 — porque o
+# tooltip é lido de relance, com o mouse parado, e não é lugar de fonte de
+# legenda.
+_T_TITULO = "font-weight:600;font-size:15px;color:#e7e9ee;"
+_T_CORPO = "font-size:13px;color:#99a0ad;"
+# Divisor de dentro do tooltip: sobre o vidro, o `--linha-forte` opaco virava
+# um traço escuro em vez de uma separação. Luz de 8%, o mesmo filete da borda.
+_T_FILETE = "rgba(255,255,255,0.08)"
+
+
 def _estilo_badge(badge_class: str) -> str:
     return ESTILO_BADGE_PRAZO.get(badge_class, ESTILO_BADGE_PRAZO["normal"])
 
@@ -341,19 +383,14 @@ def render(eu: Perfil) -> None:
                 tooltip: {{
                     trigger: 'axis',
                     axisPointer: {{ type: 'shadow', shadowStyle: {{ color: 'rgba(123, 104, 238, 0.08)' }} }},
-                    backgroundColor: 'rgba(18, 21, 28, 0.97)',
-                    borderColor: '#2f3542',
-                    borderWidth: 1,
-                    padding: [12, 16],
-                    textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                    extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
+                    {_tooltip_vidro(20)}
                     formatter: function(params) {{
                         var item = params[1] || params[0];
                         if (!item || item.dataIndex === undefined) return '';
                         var m = metaData[item.dataIndex];
                         if (!m) return '';
-                        return '<div style="font-weight:700;font-size:13px;color:#e7e9ee;margin-bottom:6px;">' + m.codigo + ' · ' + m.titulo + '</div>' +
-                               '<div style="font-size:11px;color:#99a0ad;line-height:1.6;">' +
+                        return '<div style="{_T_TITULO}margin-bottom:7px;">' + m.codigo + ' · ' + m.titulo + '</div>' +
+                               '<div style="{_T_CORPO}line-height:1.7;">' +
                                '<b>Período:</b> ' + m.inicio + ' a ' + m.fim + ' (' + item.value + 'd)<br/>' +
                                '<b>Responsável:</b> ' + m.resp + '<br/>' +
                                '<b>Projeto:</b> ' + m.projeto + '<br/>' +
@@ -422,24 +459,19 @@ def render(eu: Perfil) -> None:
                 tooltip: {{
                     trigger: 'axis',
                     axisPointer: {{ type: 'shadow', shadowStyle: {{ color: 'rgba(123, 104, 238, 0.08)' }} }},
-                    backgroundColor: 'rgba(18, 21, 28, 0.97)',
-                    borderColor: '#2f3542',
-                    borderWidth: 1,
-                    padding: [12, 16],
-                    textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                    extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
+                    {_tooltip_vidro(20)}
                     formatter: function(params) {{
                         var total = 0;
-                        var res = '<div style="font-weight:700;font-size:13px;color:#e7e9ee;margin-bottom:8px;border-bottom:1px solid #2f3542;padding-bottom:4px;">' + params[0].name + '</div>';
+                        var res = '<div style="{_T_TITULO}margin-bottom:9px;border-bottom:1px solid {_T_FILETE};padding-bottom:6px;">' + params[0].name + '</div>';
                         params.forEach(function(item) {{
                             total += item.value;
                             if (item.value > 0) {{
-                                res += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:#99a0ad;margin-bottom:3px;">' +
+                                res += '<div style="display:flex;align-items:center;justify-content:space-between;gap:20px;{_T_CORPO}margin-bottom:4px;">' +
                                        '<span>' + item.marker + ' ' + item.seriesName + '</span>' +
                                        '<strong style="color:#fff;">' + item.value + '</strong></div>';
                             }}
                         }});
-                        res += '<div style="margin-top:6px;padding-top:4px;border-top:1px solid #2f3542;font-size:11px;font-weight:700;color:#9b8dff;display:flex;justify-content:space-between;"><span>Total de Tarefas:</span><span>' + total + '</span></div>';
+                        res += '<div style="margin-top:8px;padding-top:6px;border-top:1px solid {_T_FILETE};font-size:13px;font-weight:600;color:#9b8dff;display:flex;justify-content:space-between;gap:20px;"><span>Total de Tarefas</span><span>' + total + '</span></div>';
                         return res;
                     }}
                 }},
@@ -587,24 +619,19 @@ def render(eu: Perfil) -> None:
                     tooltip: {{
                         trigger: 'axis',
                         axisPointer: {{ type: 'shadow', shadowStyle: {{ color: 'rgba(123, 104, 238, 0.08)' }} }},
-                        backgroundColor: 'rgba(18, 21, 28, 0.97)',
-                        borderColor: '#2f3542',
-                        borderWidth: 1,
-                        padding: [12, 16],
-                        textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                        extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
+                        {_tooltip_vidro(24)}
                         formatter: function(params) {{
                             var total = 0;
-                            var res = '<div style="font-weight:700;font-size:13px;color:#e7e9ee;margin-bottom:8px;border-bottom:1px solid #2f3542;padding-bottom:4px;">' + params[0].name + '</div>';
+                            var res = '<div style="{_T_TITULO}margin-bottom:9px;border-bottom:1px solid {_T_FILETE};padding-bottom:6px;">' + params[0].name + '</div>';
                             params.forEach(function(item) {{
                                 total += item.value;
                                 if (item.value > 0) {{
-                                    res += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:#99a0ad;margin-bottom:3px;">' +
+                                    res += '<div style="display:flex;align-items:center;justify-content:space-between;gap:20px;{_T_CORPO}margin-bottom:4px;">' +
                                            '<span>' + item.marker + ' ' + item.seriesName + '</span>' +
                                            '<strong style="color:#fff;">' + item.value + '</strong></div>';
                                 }}
                             }});
-                            res += '<div style="margin-top:6px;padding-top:4px;border-top:1px solid #2f3542;font-size:11px;font-weight:700;color:#9b8dff;display:flex;justify-content:space-between;"><span>Total do Projeto:</span><span>' + total + '</span></div>';
+                            res += '<div style="margin-top:8px;padding-top:6px;border-top:1px solid {_T_FILETE};font-size:13px;font-weight:600;color:#9b8dff;display:flex;justify-content:space-between;gap:20px;"><span>Total do Projeto</span><span>' + total + '</span></div>';
                             return res;
                         }}
                     }},
@@ -648,15 +675,10 @@ def render(eu: Perfil) -> None:
                     }},
                     tooltip: {{
                         trigger: 'item',
-                        backgroundColor: 'rgba(18, 21, 28, 0.97)',
-                        borderColor: '#2f3542',
-                        borderWidth: 1,
-                        padding: [12, 16],
-                        textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                        extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
+                        {_tooltip_vidro(24)}
                         formatter: function(params) {{
-                            return '<div style="font-weight:700;font-size:12px;color:#e7e9ee;">' + params.marker + ' ' + params.name + '</div>' +
-                                   '<div style="font-size:11px;color:#99a0ad;margin-top:4px;">Quantidade: <strong style="color:#9b8dff;">' + params.value + '</strong> (' + params.percent + '%)</div>';
+                            return '<div style="{_T_TITULO}">' + params.marker + ' ' + params.name + '</div>' +
+                                   '<div style="{_T_CORPO}margin-top:5px;">Quantidade: <strong style="color:#9b8dff;">' + params.value + '</strong> (' + params.percent + '%)</div>';
                         }}
                     }},
                     legend: {{
@@ -782,15 +804,10 @@ def render(eu: Perfil) -> None:
                     tooltip: {{
                         trigger: 'axis',
                         axisPointer: {{ type: 'shadow', shadowStyle: {{ color: 'rgba(123, 104, 238, 0.08)' }} }},
-                        backgroundColor: 'rgba(18, 21, 28, 0.97)',
-                        borderColor: '#2f3542',
-                        borderWidth: 1,
-                        padding: [12, 16],
-                        textStyle: {{ color: '#e7e9ee', fontSize: 12, fontFamily: 'Inter, sans-serif' }},
-                        extraCssText: 'box-shadow: 0 16px 40px rgba(0,0,0,0.6); border-radius: 10px;',
+                        {_tooltip_vidro(24)}
                         formatter: function(params) {{
-                            return '<div style="font-weight:700;color:#e7e9ee;font-size:12px;">' + params[0].name + '</div>' +
-                                   '<div style="color:#99a0ad;font-size:11px;margin-top:4px;">Tarefas pendentes: <strong style="color:#9b8dff;">' + params[0].value + '</strong></div>';
+                            return '<div style="{_T_TITULO}">' + params[0].name + '</div>' +
+                                   '<div style="{_T_CORPO}margin-top:5px;">Tarefas pendentes: <strong style="color:#9b8dff;">' + params[0].value + '</strong></div>';
                         }}
                     }},
                     grid: {{ left: '3%', right: '4%', bottom: '3%', top: '45px', containLabel: true }},

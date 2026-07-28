@@ -122,10 +122,24 @@ def badge_prioridade(prioridade: str) -> str:
     return f'<span class="badge {classe}">{esc(prioridade)}</span>'
 
 
-def avatar(nome: str | None, mini: bool = False) -> str:
+def avatar(nome: str | None, mini: bool = False, dica: bool = False) -> str:
+    """As iniciais da pessoa num disco.
+
+    `dica=True` pede a tarja com o nome no hover, e só faz sentido onde o
+    avatar aparece sozinho — hoje, o card do Kanban. Nos outros seis lugares
+    o nome está escrito ao lado dele, e uma dica que repete o texto vizinho
+    é ruído: era o caso do `title` que havia aqui.
+
+    O nome sai do `title` e vai para o `aria-label`. Os dois anunciam a mesma
+    coisa para o leitor de tela, mas só o `title` desenha por cima a caixa
+    cinza do sistema operacional — que é justamente o que a tarja de CSS
+    veio substituir. Com os dois, apareceriam as duas.
+    """
     classe = "avatar mini" if mini else "avatar"
+    rotulo = esc(nome) or "Sem responsável"
+    tarja = f' data-dica="{rotulo}"' if dica else ""
     return (
-        f'<span class="{classe}" title="{esc(nome) or "Sem responsável"}">'
+        f'<span class="{classe}" role="img" aria-label="{rotulo}"{tarja}>'
         f"{esc(iniciais(nome))}</span>"
     )
 

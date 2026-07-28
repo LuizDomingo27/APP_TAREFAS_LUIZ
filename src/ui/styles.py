@@ -346,6 +346,54 @@ header[data-testid="stHeader"] {
   width: 20px; height: 20px; font-size: 9px;
 }
 
+/* Tarja de nome do avatar. Existe num lugar só — o card do Kanban, onde o
+   avatar aparece sem o nome ao lado e "quem é essa pessoa" não tinha
+   resposta na tela. O `title` nativo não contava: o botão que cobre o card
+   come o hover antes dele, então a caixa cinza do sistema nunca chegava a
+   abrir. Nos outros avatares o nome já está escrito ao lado, e lá a dica
+   simplesmente não é pedida (ver `avatar()` em componentes.py).
+
+   Mesmo vidro das dicas do `help=` — ver a seção "dicas" —, em versão de
+   bolso: uma linha, sem quebra. */
+.avatar[data-dica] { position: relative; }
+.avatar[data-dica]::after {
+  content: attr(data-dica);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  /* Ancorada pela direita: o avatar mora no canto direito do card, e a tarja
+     cresce para dentro dele em vez de sair pela borda da coluna. */
+  right: -2px;
+  z-index: 6;
+  padding: .375rem .625rem;
+  border-radius: 10px;
+  background: rgba(23, 27, 35, .84);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: var(--realce-topo), 0 18px 44px -14px rgba(0, 0, 0, .8);
+  /* Fonte, peso e espacejamento explícitos: o avatar é 9px, 600 e com
+     letter-spacing para as iniciais caberem no disco, e a tarja herdaria
+     tudo isso. */
+  color: var(--txt-1);
+  font-size: 13px; font-weight: 500; letter-spacing: 0; line-height: 1.4;
+  white-space: nowrap;
+  opacity: 0; transform: translateY(3px);
+  pointer-events: none;
+  transition-property: opacity, transform;
+  transition-duration: 140ms;
+  transition-timing-function: cubic-bezier(.16, 1, .3, 1);
+}
+/* O atraso é só na entrada: o mouse que cruza o avatar a caminho de outra
+   coisa não abre a tarja, mas sair fecha na hora. */
+.avatar[data-dica]:hover::after,
+.avatar[data-dica]:focus-visible::after {
+  opacity: 1; transform: none;
+  transition-delay: 220ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .avatar[data-dica]::after { transform: none; transition-property: opacity; }
+}
+
 /* ------------------------------------------------------------------- topo */
 
 .topbar {
@@ -457,6 +505,12 @@ header[data-testid="stHeader"] {
 [class*="st-key-card_"] [class*="st-key-abrir_"] .stButton button {
   width: 100%; height: 100%;
 }
+/* O avatar sobe acima desse botão, senão ele come o hover e a tarja com o
+   nome nunca abre — é o mesmo caminho que o seletor de status já faz. O
+   preço é um alvo de 20px no canto inferior direito que deixa de abrir o
+   detalhe; o resto do card continua clicável, e sem isto o Kanban seguiria
+   sem nenhuma forma de saber de quem é a tarefa. */
+[class*="st-key-card_"] .avatar[data-dica] { z-index: 2; }
 [class*="st-key-card_"] [class*="st-key-abrir_"] .stButton button {
   background: transparent; border: none; box-shadow: none;
   padding: 0; min-height: 0; border-radius: 8px;
@@ -1250,6 +1304,89 @@ hr, [data-testid="stDivider"] { border-color: var(--linha); margin: 1rem 0; }
   border: 1px solid var(--linha-forte);
   color: var(--txt-1);
 }
+
+/* -------------------------------------------------------------------- dicas */
+
+/* As dicas (`help=`) eram o último pedaço da interface com o visual de
+   fábrica: caixa chapada da cor de campo, canto de 8px e texto no mesmo
+   tamanho de uma legenda. Como elas existem justamente para explicar o que
+   não é óbvio, ler tem de ser fácil — 14px e entrelinha de 1.55, a maior
+   fonte de corpo do sistema.
+   O acabamento é o oposto de "mais um painel": vidro fosco escuro, filete de
+   luz de 8% em vez do filete de divisão, e sombra funda. A dica flutua acima
+   do conteúdo em vez de parecer parte dele.
+
+   A árvore aqui é do BaseWeb e mora no <body>, fora da árvore do app:
+     div[data-baseweb="tooltip"]  → casca (Body)
+       div                        → miolo (Inner), é quem tem o fundo
+         div[data-testid="stTooltipContent"]
+   O Streamlit pinta o fundo no Inner, então zerar só a casca deixaria o
+   retângulo opaco por baixo do vidro. Os dois têm de ficar transparentes. */
+[data-baseweb="tooltip"],
+[data-baseweb="tooltip"] > div {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+[data-testid="stTooltipContent"] {
+  background: rgba(23, 27, 35, .84) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 12px;
+  /* raio concêntrico: 12 = 8 (interno do texto) + 4 do respiro lateral */
+  padding: .5rem .75rem !important;
+  max-width: 320px;
+  color: var(--txt-1) !important;
+  box-shadow: var(--realce-topo), 0 18px 44px -14px rgba(0, 0, 0, .8);
+  animation: dica-entra .14s cubic-bezier(.16, 1, .3, 1);
+}
+
+/* O componente traz um `* { font-size: sm }` de dentro do emotion — sem o
+   universal com `!important` o aumento parava no <div> e não chegava ao <p>
+   que o markdown gera. */
+[data-testid="stTooltipContent"],
+[data-testid="stTooltipContent"] * {
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+}
+/* O stMarkdown carrega um `margin-bottom: -16px` para comer a margem do <p>.
+   Dentro da dica isso desequilibra o padding: sobra em cima, falta embaixo. */
+[data-testid="stTooltipContent"] div,
+[data-testid="stTooltipContent"] p {
+  margin: 0 !important;
+  color: var(--txt-1) !important;
+}
+/* Dica de duas frases: o parágrafo seguinte respira em vez de colar. */
+[data-testid="stTooltipContent"] p + p { margin-top: .5rem !important; }
+[data-testid="stTooltipContent"] strong { color: #fff !important; font-weight: 600; }
+[data-testid="stTooltipContent"] a { color: var(--acento-alto) !important; }
+[data-testid="stTooltipContent"] code {
+  font-size: 12.5px !important;
+  background: var(--bg-3);
+  border-radius: 5px;
+  padding: .05rem .3rem;
+}
+
+/* Sobe 3px enquanto aparece. Curto e desacelerando até parar: a dica
+   *chega*, não pisca. Fora do gosto, o movimento diz de onde ela veio. */
+@keyframes dica-entra {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="stTooltipContent"] { animation: none; }
+}
+
+/* O "?" ao lado do rótulo: cinza de legenda parado, acento quando a dica
+   está prestes a abrir. É a única pista de que aquilo responde ao mouse. */
+.stTooltipIcon svg {
+  fill: var(--txt-3);
+  transition-property: fill;
+  transition-duration: .12s;
+}
+.stTooltipHoverTarget:hover .stTooltipIcon svg { fill: var(--acento-alto); }
 
 /* A regra de "linha ativa" da árvore é injetada em tempo de execução (só ali
    se sabe qual espaço está aberto). O <style> não desenha nada, mas o

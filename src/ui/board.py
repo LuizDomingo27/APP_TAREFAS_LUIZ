@@ -47,7 +47,7 @@ def _card(tarefa: dict, nome_responsavel: str | None) -> str:
         {progresso}
         <span class="meta-item" style="{cor_data}">{icone("calendar")}{data_curta(tarefa.get("data_limite"))}</span>
       </div>
-      {avatar(nome_responsavel, mini=True)}
+      {avatar(nome_responsavel, mini=True, dica=True)}
     </div>
     """)
 
